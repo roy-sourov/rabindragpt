@@ -2,8 +2,9 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime
+import base64
+import os
 
-# Page configuration
 st.set_page_config(
     page_title="RabindraGPT - Bengali Poetry & Music Generator",
     page_icon="🎵",
@@ -11,7 +12,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better styling
 st.markdown("""
 <style>
     .main-header {
@@ -37,9 +37,32 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def main():
-    # Header
-    st.markdown('<h1 class="main-header">🎵 RabindraGPT</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-header">Open Source Bengali Poetry and Music Generator</p>', unsafe_allow_html=True)
+    # Header Banner with Tagore (left), RabindraGPT (center), Lalon (right)
+    tagore_img_path = os.path.join("static", "tagore.png")
+    lalon_img_path = os.path.join("static", "lalon.png")
+    def img_to_base64(path):
+        try:
+            with open(path, "rb") as img_file:
+                return base64.b64encode(img_file.read()).decode()
+        except Exception:
+            return None
+    tagore_b64 = img_to_base64(tagore_img_path)
+    lalon_b64 = img_to_base64(lalon_img_path)
+    banner_html = ''
+    if tagore_b64 and lalon_b64:
+        banner_html = f'''
+        <div style="display: flex; align-items: center; width: 100%; height: 160px; margin-bottom: 2rem; border-radius: 18px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.10); background: #f7f3ed;">
+            <img src="data:image/png;base64,{tagore_b64}" style="width: 110px; height: 110px; object-fit: cover; border-radius: 14px; margin-left: 24px; margin-right: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.10); background: #fff;" />
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                <h1 style="font-size: 2.5rem; font-weight: bold; color: #1f77b4; margin-bottom: 0.5rem; letter-spacing: 2px;">🎵 RabindraGPT</h1>
+                <p style="font-size: 1.2rem; color: #444; margin: 0;">Open Source Bengali Poetry and Music Generator</p>
+            </div>
+            <img src="data:image/png;base64,{lalon_b64}" style="width: 110px; height: 110px; object-fit: cover; border-radius: 14px; margin-right: 24px; margin-left: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.10); background: #fff;" />
+        </div>
+        '''
+    else:
+        banner_html = f'<h1 style="color: #b00;">RabindraGPT</h1><p>Banner images not found.</p>'
+    st.markdown(banner_html, unsafe_allow_html=True)
     
     # Sidebar
     with st.sidebar:
@@ -49,7 +72,7 @@ def main():
         # Mode selection
         mode = st.selectbox(
             "Choose Generation Mode",
-            ["Poetry Generation", "Music Generation", "Poetry + Music", "Settings"]
+            ["Poetry Generation", "Music Generation", "Poetry + Music", "Poetry Search", "Settings"]
         )
         
         if mode == "Poetry Generation":
@@ -148,6 +171,70 @@ def main():
                     st.subheader("Generated Music")
                     st.audio("https://www.soundjay.com/misc/sounds/bell-ringing-05.wav", format="audio/wav")
                     
+    elif mode == "Poetry Search":
+        st.header("🔎 Bengali Poetry Search Catalogue")
+        st.markdown("Search for Bengali poems by keyword. Enter a word or phrase (in Bengali or English) and discover matching poetry from our collection.")
+
+        # Custom CSS for Bengali font
+        st.markdown("""
+        <style>
+        .bengali-poem {
+            font-family: 'Noto Serif Bengali', 'SolaimanLipi', 'Bangla', serif;
+            font-size: 1.2rem;
+            color: #222;
+            background: #f9f6f2;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        # Mock poetry database
+        poetry_db = [
+            {
+                "title": "আজি এ প্রভাতে রবির কর",
+                "content": "আজি এ প্রভাতে রবির কর\nকেমনে পশিল প্রাণের পর?\nকেমনে পশিল হৃদয়-গহনে\nকেমনে পশিল আঁখির স্বপনে?",
+                "tags": ["রবি", "আলো", "প্রভাত"]
+            },
+            {
+                "title": "আমার সোনার বাংলা",
+                "content": "আমার সোনার বাংলা, আমি তোমায় ভালোবাসি\nচিরদিন তোমার আকাশ, তোমার বাতাস, আমার প্রাণে বাজায় বাঁশি",
+                "tags": ["বাংলা", "ভালোবাসা", "দেশ"]
+            },
+            {
+                "title": "বসন্ত এসেছে",
+                "content": "বসন্ত এসেছে, ফুলে ফুলে রঙ লেগেছে\nবাতাসে মধুর গন্ধে মন ভরে গেছে",
+                "tags": ["বসন্ত", "ফুল", "প্রকৃতি"]
+            },
+            {
+                "title": "Where the mind is without fear",
+                "content": "Where the mind is without fear and the head is held high...",
+                "tags": ["Tagore", "English", "Mind"]
+            },
+        ]
+
+        # Search input
+        keyword = st.text_input("Enter poetry keyword (Bengali or English)", "", key="poetry_search")
+        if st.button("🔍 Search Poetry"):
+            if keyword.strip() == "":
+                st.warning("Please enter a keyword to search.")
+            else:
+                # Search poems (case-insensitive, in title/content/tags)
+                results = []
+                for poem in poetry_db:
+                    if (keyword.lower() in poem["title"].lower() or
+                        keyword.lower() in poem["content"].lower() or
+                        any(keyword.lower() in tag.lower() for tag in poem["tags"])):
+                        results.append(poem)
+                if results:
+                    st.success(f"Found {len(results)} matching poem(s):")
+                    for poem in results:
+                        with st.expander(poem["title"]):
+                            st.markdown(f'<div class="bengali-poem">{poem["content"].replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
+                else:
+                    st.info("No matching poems found. Try another keyword!")
+            
     elif mode == "Settings":
         st.header("⚙️ Application Settings")
         
