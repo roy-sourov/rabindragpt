@@ -4,6 +4,8 @@ import plotly.express as px
 from datetime import datetime
 import base64
 import os
+import requests
+import google.generativeai as genai
 
 st.set_page_config(
     page_title="RabindraGPT - Bengali Poetry & Music Generator",
@@ -35,6 +37,35 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+GEMINI_API_KEY = "AIzaSyCMf7JdCaYxaPNa-B9wMwjjrF_OFbBep4A"
+genai.configure(api_key=GEMINI_API_KEY)
+
+def gemini_generate(prompt, temperature=0.8, max_tokens=500):
+    model = genai.GenerativeModel('models/gemini-1.5-flash')
+    response = model.generate_content(prompt, generation_config={
+        'temperature': temperature,
+        'max_output_tokens': max_tokens
+    })
+    # Robust error handling for Gemini responses
+    try:
+        if hasattr(response, 'text') and response.text:
+            return response.text
+        # Fallback: try to extract from parts
+        if hasattr(response, 'candidates') and response.candidates:
+            for candidate in response.candidates:
+                if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
+                    for part in candidate.content.parts:
+                        if hasattr(part, 'text') and part.text:
+                            return part.text
+        # If finish_reason is 2 (SAFETY), show a warning
+        if hasattr(response, 'candidates') and response.candidates:
+            for candidate in response.candidates:
+                if hasattr(candidate, 'finish_reason') and candidate.finish_reason == 2:
+                    return "⚠️ Gemini refused to generate content due to safety filters. Try a different prompt."
+        return "⚠️ No response generated. Try a different prompt."
+    except Exception as e:
+        return f"⚠️ Error: {e}"
 
 def main():
     # Header Banner with Tagore (left), RabindraGPT (center), Lalon (right)
@@ -98,6 +129,16 @@ def main():
                 st.session_state['max_tokens'] = 500
             temperature = st.slider("Creativity Level", 0.1, 2.0, st.session_state['temperature'], key="temperature_slider_sidebar")
             max_tokens = st.slider("Max Tokens", 100, 1000, st.session_state['max_tokens'], key="max_tokens_slider_sidebar")
+
+        # Utility to show available Gemini models in the sidebar for debugging
+        if st.checkbox('Show available Gemini models (debug)', value=False, key='show_models'):
+            try:
+                models = genai.list_models()
+                st.write('Available Gemini models:')
+                for m in models:
+                    st.write(m.name)
+            except Exception as e:
+                st.error(f"Error listing models: {e}")
 
     # Main content area
     if 'active_mode' not in st.session_state:
@@ -166,22 +207,57 @@ def main():
             ["Poetry Generation", "Music Generation", "Poetry + Music"],
             key="generation_mode_radio"
         )
+        result = None
+        hardcoded_prompt = "How Gemini works"
         if gen_mode == "Poetry Generation":
             poetry_type = st.selectbox(
                 "Poetry Type",
                 ["Sonnet", "Ghazal", "Free Verse", "Haiku", "Custom"]
             )
-            theme = st.text_input("Theme (optional)", placeholder="Nature, Love, Freedom...")
+            query = st.text_input("Enter your query", placeholder="e.g. Love, Nature, Freedom...")
             length = st.slider("Poem Length", 4, 20, 8)
+            if st.button("Generate Poetry", key="do_generate_poetry"):
+                with st.spinner("Generating poetry with Gemini..."):
+                    prompt = f"Generate a Bengali poetry on theme: {query if query else 'Any'} of length {length} lines. Type: {poetry_type}."
+                    result = gemini_generate(prompt, st.session_state['temperature'], st.session_state['max_tokens'])
+            if result:
+                st.subheader("Generated Poetry")
+                st.markdown(f'<div class="bengali-poem">{result.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
         elif gen_mode == "Music Generation":
             music_style = st.selectbox(
                 "Music Style",
                 ["Rabindra Sangeet", "Folk", "Classical", "Modern", "Fusion"]
             )
+            query = st.text_input("Enter your query", placeholder="e.g. Love, Nature, Freedom...", key="music_query")
             duration = st.slider("Duration (seconds)", 30, 300, 120)
+            if st.button("Generate Music Lyrics", key="do_generate_music"):
+                with st.spinner("Generating music lyrics with Gemini..."):
+                    prompt = f"Generate Bengali music lyrics in style: {music_style} on theme: {query if query else 'Any'} of length suitable for {duration} seconds."
+                    result = gemini_generate(prompt, st.session_state['temperature'], st.session_state['max_tokens'])
+            if result:
+                st.subheader("Generated Music Lyrics")
+                st.markdown(f'<div class="bengali-poem">{result.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
         elif gen_mode == "Poetry + Music":
-            pass
-        # Do NOT add settings sliders here (they are only in the sidebar)
+            query = st.text_input("Enter your query", placeholder="e.g. Love, Nature, Freedom...", key="fusion_theme")
+            length = st.slider("Poem Length", 4, 20, 8, key="fusion_length")
+            music_style = st.selectbox(
+                "Music Style",
+                ["Rabindra Sangeet", "Folk", "Classical", "Modern", "Fusion"],
+                key="fusion_music_style"
+            )
+            duration = st.slider("Duration (seconds)", 30, 300, 120, key="fusion_duration")
+            if st.button("Generate Poetry + Music Lyrics", key="do_generate_fusion"):
+                with st.spinner("Generating poetry and music lyrics with Gemini..."):
+                    prompt_poetry = f"Generate a Bengali poetry on theme: {query if query else 'Any'} of length {length} lines."
+                    prompt_music = f"Generate Bengali music lyrics in style: {music_style} on theme: {query if query else 'Any'} of length suitable for {duration} seconds."
+                    result_poetry = gemini_generate(prompt_poetry, st.session_state['temperature'], st.session_state['max_tokens'])
+                    result_music = gemini_generate(prompt_music, st.session_state['temperature'], st.session_state['max_tokens'])
+                if result_poetry:
+                    st.subheader("Generated Poetry")
+                    st.markdown(f'<div class="bengali-poem">{result_poetry.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
+                if result_music:
+                    st.subheader("Generated Music Lyrics")
+                    st.markdown(f'<div class="bengali-poem">{result_music.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
 
     # Footer
     st.markdown("---")
