@@ -6,6 +6,10 @@ import base64
 import os
 import requests
 import google.generativeai as genai
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 st.set_page_config(
     page_title="RabindraGPT - Bengali Poetry & Music Generator",
@@ -38,7 +42,11 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-GEMINI_API_KEY = "" # Add your Gemini API key here
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    st.error("GEMINI_API_KEY not found in environment variables. Please create a .env file with your API key.")
+    st.stop()
+
 genai.configure(api_key=GEMINI_API_KEY)
 
 def gemini_generate(prompt, temperature=0.8, max_tokens=500):
@@ -82,13 +90,13 @@ def main():
     banner_html = ''
     if tagore_b64 and lalon_b64:
         banner_html = f'''
-        <div style="display: flex; align-items: center; width: 100%; height: 160px; margin-bottom: 2rem; border-radius: 18px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.10); background: #f7f3ed;">
-            <img src="data:image/png;base64,{tagore_b64}" style="width: 110px; height: 110px; object-fit: cover; border-radius: 14px; margin-left: 24px; margin-right: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.10); background: #fff;" />
+        <div style="display: flex; align-items: center; width: 100%; height: 160px; margin-bottom: 2rem; border-radius: 18px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.30); background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);">
+            <img src="data:image/png;base64,{tagore_b64}" style="width: 110px; height: 110px; object-fit: cover; border-radius: 14px; margin-left: 24px; margin-right: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.25); background: #2a2a3e; border: 2px solid #3a3a4e;" />
             <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                <h1 style="font-size: 2.5rem; font-weight: bold; color: #1f77b4; margin-bottom: 0.5rem; letter-spacing: 2px;">🎵 RabindraGPT</h1>
-                <p style="font-size: 1.2rem; color: #444; margin: 0;">Open Source Bengali Poetry and Music Generator</p>
+                <h1 style="font-size: 2.5rem; font-weight: bold; color: #64b5f6; margin-bottom: 0.5rem; letter-spacing: 2px; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">🎵 RabindraGPT</h1>
+                <p style="font-size: 1.2rem; color: #b0bec5; margin: 0; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">Open Source Bengali Poetry and Music Generator</p>
             </div>
-            <img src="data:image/png;base64,{lalon_b64}" style="width: 110px; height: 110px; object-fit: cover; border-radius: 14px; margin-right: 24px; margin-left: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.10); background: #fff;" />
+            <img src="data:image/png;base64,{lalon_b64}" style="width: 110px; height: 110px; object-fit: cover; border-radius: 14px; margin-right: 24px; margin-left: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.25); background: #2a2a3e; border: 2px solid #3a3a4e;" />
         </div>
         '''
     else:
@@ -103,7 +111,7 @@ def main():
             img_base64 = base64.b64encode(img_file.read()).decode()
         st.markdown(f'''
             <div style="display: flex; justify-content: center; align-items: center; width: 100%; margin-bottom: 1.2rem;">
-                <img src="data:image/png;base64,{img_base64}" style="width: 180px; max-width: 80%; display: block; margin-left: auto; margin-right: auto; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); background: #fff;" />
+                <img src="data:image/png;base64,{img_base64}" style="width: 180px; max-width: 80%; display: block; margin-left: auto; margin-right: auto; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); border: 2px solid #3a3a4e; padding: 8px;" />
             </div>
         ''', unsafe_allow_html=True)
         # Mode dropdown
@@ -264,7 +272,7 @@ def main():
     st.markdown("""
     <div style='text-align: center; color: #666;'>
         <p>Made with ❤️ for Bengali culture and literature</p>
-        <p>Powered by Streamlit and AI</p>
+        <p>Powered by Sourov Roy and Google Gemini</p>
     </div>
     """, unsafe_allow_html=True)
 
