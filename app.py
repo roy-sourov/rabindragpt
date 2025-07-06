@@ -38,7 +38,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-GEMINI_API_KEY = "AIzaSyCMf7JdCaYxaPNa-B9wMwjjrF_OFbBep4A"
+GEMINI_API_KEY = "" # Add your Gemini API key here
 genai.configure(api_key=GEMINI_API_KEY)
 
 def gemini_generate(prompt, temperature=0.8, max_tokens=500):
@@ -204,11 +204,12 @@ def main():
         st.header("📝 Poetry & Music Generation")
         gen_mode = st.radio(
             "Choose Generation Mode",
-            ["Poetry", "Music"],
+            ["Poetry Generation", "Music Generation", "Poetry + Music"],
             key="generation_mode_radio"
         )
         result = None
-        if gen_mode == "Poetry":
+        hardcoded_prompt = "How Gemini works"
+        if gen_mode == "Poetry Generation":
             poetry_type = st.selectbox(
                 "Poetry Type",
                 ["Sonnet", "Ghazal", "Free Verse", "Haiku", "Custom"]
@@ -222,7 +223,7 @@ def main():
             if result:
                 st.subheader("Generated Poetry")
                 st.markdown(f'<div class="bengali-poem">{result.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
-        elif gen_mode == "Music":
+        elif gen_mode == "Music Generation":
             music_style = st.selectbox(
                 "Music Style",
                 ["Rabindra Sangeet", "Folk", "Classical", "Modern", "Fusion"]
@@ -236,6 +237,27 @@ def main():
             if result:
                 st.subheader("Generated Music Lyrics")
                 st.markdown(f'<div class="bengali-poem">{result.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
+        elif gen_mode == "Poetry + Music":
+            query = st.text_input("Enter your query", placeholder="e.g. Love, Nature, Freedom...", key="fusion_theme")
+            length = st.slider("Poem Length", 4, 20, 8, key="fusion_length")
+            music_style = st.selectbox(
+                "Music Style",
+                ["Rabindra Sangeet", "Folk", "Classical", "Modern", "Fusion"],
+                key="fusion_music_style"
+            )
+            duration = st.slider("Duration (seconds)", 30, 300, 120, key="fusion_duration")
+            if st.button("Generate Poetry + Music Lyrics", key="do_generate_fusion"):
+                with st.spinner("Generating poetry and music lyrics with Gemini..."):
+                    prompt_poetry = f"Generate a Bengali poetry on theme: {query if query else 'Any'} of length {length} lines."
+                    prompt_music = f"Generate Bengali music lyrics in style: {music_style} on theme: {query if query else 'Any'} of length suitable for {duration} seconds."
+                    result_poetry = gemini_generate(prompt_poetry, st.session_state['temperature'], st.session_state['max_tokens'])
+                    result_music = gemini_generate(prompt_music, st.session_state['temperature'], st.session_state['max_tokens'])
+                if result_poetry:
+                    st.subheader("Generated Poetry")
+                    st.markdown(f'<div class="bengali-poem">{result_poetry.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
+                if result_music:
+                    st.subheader("Generated Music Lyrics")
+                    st.markdown(f'<div class="bengali-poem">{result_music.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
 
     # Footer
     st.markdown("---")
