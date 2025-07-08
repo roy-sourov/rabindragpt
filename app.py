@@ -7,13 +7,21 @@ import os
 import requests
 import google.generativeai as genai
 from dotenv import load_dotenv
+from PIL import Image
+import random
 
 # Load environment variables
 load_dotenv()
 
+# Set favicon to tagoreV1.png for page config
+favicon_path = os.path.join("static", "tagoreV1.png")
+favicon_img = None
+if os.path.exists(favicon_path):
+    favicon_img = Image.open(favicon_path)
+
 st.set_page_config(
     page_title="RabindraGPT - Bengali Poetry & Music Generator",
-    page_icon="🎵",
+    page_icon=favicon_img if favicon_img else "🎵",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -76,27 +84,27 @@ def gemini_generate(prompt, temperature=0.8, max_tokens=500):
         return f"⚠️ Error: {e}"
 
 def main():
-    # Header Banner with Tagore (left), RabindraGPT (center), Lalon (right)
-    tagore_img_path = os.path.join("static", "tagore.png")
-    lalon_img_path = os.path.join("static", "lalon.png")
+    # Header Banner with TagoreV1 (left), RabindraGPT (center), TagoreV2 (right)
+    tagore_v1_img_path = os.path.join("static", "tagoreV1.png")
+    tagore_v2_img_path = os.path.join("static", "tagoreV2.png")
     def img_to_base64(path):
         try:
             with open(path, "rb") as img_file:
                 return base64.b64encode(img_file.read()).decode()
         except Exception:
             return None
-    tagore_b64 = img_to_base64(tagore_img_path)
-    lalon_b64 = img_to_base64(lalon_img_path)
+    tagore_v1_b64 = img_to_base64(tagore_v1_img_path)
+    tagore_v2_b64 = img_to_base64(tagore_v2_img_path)
     banner_html = ''
-    if tagore_b64 and lalon_b64:
+    if tagore_v1_b64 and tagore_v2_b64:
         banner_html = f'''
         <div style="display: flex; align-items: center; width: 100%; height: 160px; margin-bottom: 2rem; border-radius: 18px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.30); background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);">
-            <img src="data:image/png;base64,{tagore_b64}" style="width: 110px; height: 110px; object-fit: cover; border-radius: 14px; margin-left: 24px; margin-right: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.25); background: #2a2a3e; border: 2px solid #3a3a4e;" />
+            <img src="data:image/png;base64,{tagore_v1_b64}" style="width: 110px; height: 110px; object-fit: cover; border-radius: 14px; margin-left: 24px; margin-right: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.25); background: #2a2a3e; border: 2px solid #3a3a4e;" />
             <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                <h1 style="font-size: 2.5rem; font-weight: bold; color: #64b5f6; margin-bottom: 0.5rem; letter-spacing: 2px; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">🎵 RabindraGPT</h1>
+                <h1 style="font-size: 2.5rem; font-weight: bold; color: #64b5f6; margin-bottom: 0.5rem; letter-spacing: 2px; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">RabindraGPT</h1>
                 <p style="font-size: 1.2rem; color: #b0bec5; margin: 0; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">Open Source Bengali Poetry and Music Generator</p>
             </div>
-            <img src="data:image/png;base64,{lalon_b64}" style="width: 110px; height: 110px; object-fit: cover; border-radius: 14px; margin-right: 24px; margin-left: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.25); background: #2a2a3e; border: 2px solid #3a3a4e;" />
+            <img src="data:image/png;base64,{tagore_v2_b64}" style="width: 110px; height: 110px; object-fit: cover; border-radius: 14px; margin-right: 24px; margin-left: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.25); background: #2a2a3e; border: 2px solid #3a3a4e;" />
         </div>
         '''
     else:
@@ -157,115 +165,152 @@ def main():
         st.subheader("Poetry Search")
         keyword = st.text_input("Keyword (Bengali or English)", "", key="poetry_search")
         selected_poet = st.session_state.get('selected_poet', 'All')
-        # Mock poetry database
-        poetry_db = [
-            {
-                "title": "আজি এ প্রভাতে রবির কর",
-                "content": "আজি এ প্রভাতে রবির কর\nকেমনে পশিল প্রাণের পর?\nকেমনে পশিল হৃদয়-গহনে\nকেমনে পশিল আঁখির স্বপনে?",
-                "tags": ["রবি", "আলো", "প্রভাত"],
-                "poet": "Rabindranath Tagore"
-            },
-            {
-                "title": "আমার সোনার বাংলা",
-                "content": "আমার সোনার বাংলা, আমি তোমায় ভালোবাসি\nচিরদিন তোমার আকাশ, তোমার বাতাস, আমার প্রাণে বাজায় বাঁশি",
-                "tags": ["বাংলা", "ভালোবাসা", "দেশ"],
-                "poet": "Rabindranath Tagore"
-            },
-            {
-                "title": "বসন্ত এসেছে",
-                "content": "বসন্ত এসেছে, ফুলে ফুলে রঙ লেগেছে\nবাতাসে মধুর গন্ধে মন ভরে গেছে",
-                "tags": ["বসন্ত", "ফুল", "প্রকৃতি"],
-                "poet": "Jibanananda Das"
-            },
-            {
-                "title": "Where the mind is without fear",
-                "content": "Where the mind is without fear and the head is held high...",
-                "tags": ["Tagore", "English", "Mind"],
-                "poet": "Rabindranath Tagore"
-            },
-        ]
+        # On search, show a random song from songs.txt
         if st.button("🔍 Search Poetry", key="do_search"):
-            if keyword.strip() == "" and (selected_poet is None or selected_poet == "All"):
-                st.warning("Please enter a keyword or select a poet to search.")
-            else:
-                # Search poems (case-insensitive, in title/content/tags/poet)
-                results = []
-                for poem in poetry_db:
-                    poet_match = (selected_poet == "All" or (selected_poet and selected_poet.lower() in poem["poet"].lower()))
-                    keyword_match = (
-                        keyword.lower() in poem["title"].lower() or
-                        keyword.lower() in poem["content"].lower() or
-                        any(keyword.lower() in tag.lower() for tag in poem["tags"])
-                    ) if keyword.strip() else True
-                    if poet_match and keyword_match:
-                        results.append(poem)
-                if results:
-                    st.success(f"Found {len(results)} matching poem(s):")
-                    for poem in results:
-                        with st.expander(f"{poem['title']} — {poem['poet']}"):
-                            st.markdown(f'<div class="bengali-poem">{poem["content"].replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
+            try:
+                df = pd.read_csv("data/songs.txt")
+                if keyword.strip():
+                    # Filter for keyword in lyrics (case-insensitive)
+                    matches = df[df['lyrics'].str.contains(keyword, case=False, na=False)]
+                    if not matches.empty:
+                        st.success(f"Found {len(matches)} matching poem(s):")
+                        for _, row in matches.head(50).iterrows():
+                            first_line = row['lyrics'].splitlines()[0].rstrip('।.,!?,;: ')
+                            with st.expander(f"{first_line} - Rabindranath Tagore"):
+                                st.markdown(f'<div class="bengali-poem">{row["lyrics"].replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
+                                st.markdown(f"**রাগ:** {row['রাগ']}  ")
+                                st.markdown(f"**তাল:** {row['তাল']}  ")
+                                st.markdown(f"**রচনাকাল (বঙ্গাব্দ):** {row['রচনাকাল (বঙ্গাব্দ)']}  ")
+                                st.markdown(f"**রচনাকাল (খৃষ্টাব্দ):** {row['রচনাকাল (খৃষ্টাব্দ)']}  ")
+                                st.markdown(f"**স্বরলিপিকার:** {row['স্বরলিপিকার']}  ")
+                                st.markdown(f"[View Original]({row['url']})")
+                    else:
+                        st.info("No matching poems found. Try another filter!")
                 else:
-                    st.info("No matching poems found. Try another filter!")
+                    # No keyword: show 10 random
+                    rows = df.sample(10)
+                    st.success("Showing 10 random results from Rabindra Sangeet archive:")
+                    for _, row in rows.iterrows():
+                        first_line = row['lyrics'].splitlines()[0].rstrip('।.,!?,;: ')
+                        with st.expander(f"{first_line} - Rabindranath Tagore"):
+                            st.markdown(f'<div class="bengali-poem">{row["lyrics"].replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
+                            st.markdown(f"**রাগ:** {row['রাগ']}  ")
+                            st.markdown(f"**তাল:** {row['তাল']}  ")
+                            st.markdown(f"**রচনাকাল (বঙ্গাব্দ):** {row['রচনাকাল (বঙ্গাব্দ)']}  ")
+                            st.markdown(f"**রচনাকাল (খৃষ্টাব্দ):** {row['রচনাকাল (খৃষ্টাব্দ)']}  ")
+                            st.markdown(f"**স্বরলিপিকার:** {row['স্বরলিপিকার']}  ")
+                            st.markdown(f"[View Original]({row['url']})")
+            except Exception as e:
+                st.error(f"Could not load poetry from songs.txt: {e}")
             
     elif st.session_state['active_mode'] == 'generate':
-        # Show Generation tools (default to Poetry Generation, with options for other modes)
-        st.header("📝 Poetry & Music Generation")
-        gen_mode = st.radio(
-            "Choose Generation Mode",
-            ["Poetry Generation", "Music Generation", "Poetry + Music"],
-            key="generation_mode_radio"
-        )
-        result = None
-        hardcoded_prompt = "How Gemini works"
-        if gen_mode == "Poetry Generation":
-            poetry_type = st.selectbox(
-                "Poetry Type",
-                ["Sonnet", "Ghazal", "Free Verse", "Haiku", "Custom"]
-            )
-            query = st.text_input("Enter your query", placeholder="e.g. Love, Nature, Freedom...")
-            length = st.slider("Poem Length", 4, 20, 8)
-            if st.button("Generate Poetry", key="do_generate_poetry"):
-                with st.spinner("Generating poetry with Gemini..."):
-                    prompt = f"Generate a Bengali poetry on theme: {query if query else 'Any'} of length {length} lines. Type: {poetry_type}."
-                    result = gemini_generate(prompt, st.session_state['temperature'], st.session_state['max_tokens'])
-            if result:
-                st.subheader("Generated Poetry")
-                st.markdown(f'<div class="bengali-poem">{result.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
-        elif gen_mode == "Music Generation":
-            music_style = st.selectbox(
-                "Music Style",
-                ["Rabindra Sangeet", "Folk", "Classical", "Modern", "Fusion"]
-            )
-            query = st.text_input("Enter your query", placeholder="e.g. Love, Nature, Freedom...", key="music_query")
-            duration = st.slider("Duration (seconds)", 30, 300, 120)
-            if st.button("Generate Music Lyrics", key="do_generate_music"):
-                with st.spinner("Generating music lyrics with Gemini..."):
-                    prompt = f"Generate Bengali music lyrics in style: {music_style} on theme: {query if query else 'Any'} of length suitable for {duration} seconds."
-                    result = gemini_generate(prompt, st.session_state['temperature'], st.session_state['max_tokens'])
-            if result:
-                st.subheader("Generated Music Lyrics")
-                st.markdown(f'<div class="bengali-poem">{result.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
-        elif gen_mode == "Poetry + Music":
-            query = st.text_input("Enter your query", placeholder="e.g. Love, Nature, Freedom...", key="fusion_theme")
-            length = st.slider("Poem Length", 4, 20, 8, key="fusion_length")
-            music_style = st.selectbox(
-                "Music Style",
-                ["Rabindra Sangeet", "Folk", "Classical", "Modern", "Fusion"],
-                key="fusion_music_style"
-            )
-            duration = st.slider("Duration (seconds)", 30, 300, 120, key="fusion_duration")
-            if st.button("Generate Poetry + Music Lyrics", key="do_generate_fusion"):
-                with st.spinner("Generating poetry and music lyrics with Gemini..."):
-                    prompt_poetry = f"Generate a Bengali poetry on theme: {query if query else 'Any'} of length {length} lines."
-                    prompt_music = f"Generate Bengali music lyrics in style: {music_style} on theme: {query if query else 'Any'} of length suitable for {duration} seconds."
-                    result_poetry = gemini_generate(prompt_poetry, st.session_state['temperature'], st.session_state['max_tokens'])
-                    result_music = gemini_generate(prompt_music, st.session_state['temperature'], st.session_state['max_tokens'])
-                if result_poetry:
-                    st.subheader("Generated Poetry")
-                    st.markdown(f'<div class="bengali-poem">{result_poetry.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
-                if result_music:
-                    st.subheader("Generated Music Lyrics")
-                    st.markdown(f'<div class="bengali-poem">{result_music.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
+        # Create clickable buttons for generation modes
+        st.markdown("""
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <h3 style="color: #64b5f6; margin-bottom: 1rem;">Choose Your Creative Mode</h3>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("📝 Poetry Generation", key="poetry_button", use_container_width=True):
+                st.session_state['selected_gen_mode'] = 'Poetry'
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                        border-radius: 15px; padding: 1.5rem; margin: 1rem 0; 
+                        border: 2px solid #3a3a4e; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+                <p style="color: #b0bec5; font-size: 0.9rem; text-align: center; margin: 0;">Create beautiful Bengali poetry in various styles</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        with col2:
+            if st.button("🎼 Music Generation", key="music_button", use_container_width=True):
+                st.session_state['selected_gen_mode'] = 'Music'
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                        border-radius: 15px; padding: 1.5rem; margin: 1rem 0; 
+                        border: 2px solid #3a3a4e; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+                <p style="color: #b0bec5; font-size: 0.9rem; text-align: center; margin: 0;">Compose Bengali music lyrics and melodies</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Show generation UI based on selected mode
+        if 'selected_gen_mode' in st.session_state:
+            gen_mode = st.session_state['selected_gen_mode']
+            
+            # Add a back button
+            if st.button("← Back to Mode Selection", key="back_button"):
+                del st.session_state['selected_gen_mode']
+                st.rerun()
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            result = None
+            if gen_mode == "Poetry":
+                st.markdown("""
+                <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                            border-radius: 12px; padding: 1.5rem; margin: 1rem 0; 
+                            border: 1px solid #3a3a4e;">
+                    <h4 style="color: #64b5f6; margin-bottom: 1rem;">📝 Poetry Settings</h4>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    poetry_type = st.selectbox(
+                        "Poetry Type",
+                        ["Sonnet", "Ghazal", "Free Verse", "Haiku", "Custom"]
+                    )
+                    query = st.text_input("Enter your query", placeholder="e.g. Love, Nature, Freedom...")
+                with col2:
+                    length = st.slider("Poem Length", 4, 20, 8)
+                    if st.button("🎵 Generate Poetry", key="do_generate_poetry", use_container_width=True):
+                        with st.spinner("✨ Generating poetry with Gemini..."):
+                            prompt = f"Generate a Bengali poetry on theme: {query if query else 'Any'} of length {length} lines. Type: {poetry_type}."
+                            result = gemini_generate(prompt, st.session_state['temperature'], st.session_state['max_tokens'])
+                
+                if result:
+                    st.markdown("""
+                    <div style="background: linear-gradient(135deg, #0f3460 0%, #16213e 100%); 
+                                border-radius: 12px; padding: 1.5rem; margin: 1rem 0; 
+                                border: 1px solid #3a3a4e;">
+                        <h4 style="color: #64b5f6; margin-bottom: 1rem;">✨ Generated Poetry</h4>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.markdown(f'<div class="bengali-poem">{result.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
+            elif gen_mode == "Music":
+                st.markdown("""
+                <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                            border-radius: 12px; padding: 1.5rem; margin: 1rem 0; 
+                            border: 1px solid #3a3a4e;">
+                    <h4 style="color: #64b5f6; margin-bottom: 1rem;">🎼 Music Settings</h4>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    music_style = st.selectbox(
+                        "Music Style",
+                        ["Rabindra Sangeet", "Folk", "Classical", "Modern", "Fusion"]
+                    )
+                    query = st.text_input("Enter your query", placeholder="e.g. Love, Nature, Freedom...", key="music_query")
+                with col2:
+                    duration = st.slider("Duration (seconds)", 30, 300, 120)
+                    if st.button("🎼 Generate Music Lyrics", key="do_generate_music", use_container_width=True):
+                        with st.spinner("🎵 Generating music lyrics with Gemini..."):
+                            prompt = f"Generate Bengali music lyrics in style: {music_style} on theme: {query if query else 'Any'} of length suitable for {duration} seconds."
+                            result = gemini_generate(prompt, st.session_state['temperature'], st.session_state['max_tokens'])
+                
+                if result:
+                    st.markdown("""
+                    <div style="background: linear-gradient(135deg, #0f3460 0%, #16213e 100%); 
+                                border-radius: 12px; padding: 1.5rem; margin: 1rem 0; 
+                                border: 1px solid #3a3a4e;">
+                        <h4 style="color: #64b5f6; margin-bottom: 1rem;">🎵 Generated Music Lyrics</h4>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.markdown(f'<div class="bengali-poem">{result.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
 
     # Footer
     st.markdown("---")
