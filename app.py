@@ -393,12 +393,38 @@ def main():
                         ["Rabindra Sangeet", "Folk", "Classical", "Modern", "Fusion"]
                     )
                     query = st.text_input("Enter your query", placeholder="e.g. Love, Nature, Freedom...", key="music_query")
+                    # If Rabindranath Tagore is selected, show Raga and Tala dropdowns
+                    raga = tala = None
+                    if music_style == "Rabindra Sangeet":
+                        try:
+                            df = pd.read_csv("data/songs.txt")
+                            rag_options = [r for r in sorted(df['রাগ'].dropna().unique().tolist()) if str(r).strip() != '?']
+                            tal_options = [t for t in sorted(df['তাল'].dropna().unique().tolist()) if str(t).strip() != '?']
+                        except Exception:
+                            rag_options, tal_options = [], []
+                        raga = st.selectbox("রাগ (Raga)", rag_options, key="music_gen_raga")
+                        tala = st.selectbox("তাল (Tala)", tal_options, key="music_gen_tala")
                 with col2:
                     duration = st.slider("Duration (seconds)", 30, 300, 120)
                     if st.button("🎼 Generate Music Lyrics", key="do_generate_music", use_container_width=True):
                         with st.spinner("🎵 Generating music lyrics with Gemini..."):
-                            prompt = f"Generate Bengali music lyrics in style: {music_style} on theme: {query if query else 'Any'} of length suitable for {duration} seconds."
-                            result = gemini_generate(prompt, st.session_state['temperature'], st.session_state['max_tokens'])
+                            if music_style == "Rabindra Sangeet" and raga and tala:
+                                try:
+                                    df = pd.read_csv("data/songs.txt")
+                                    filtered = df[(df['রাগ'] == raga) & (df['তাল'] == tala)]
+                                    if not filtered.empty:
+                                        ref_row = filtered.sample(1).iloc[0]
+                                        ref_lyrics = ref_row['lyrics']
+                                        prompt = f"Write a Bengali song similar to the following, using raga: {raga} and tala: {tala}. Reference lyrics: {ref_lyrics}"
+                                    else:
+                                        st.warning(f"No matching Rabindra Sangeet found for রাগ: {raga} and তাল: {tala}.")
+                                        prompt = None
+                                except Exception as e:
+                                    st.warning(f"Error loading songs.txt: {e}")
+                                    prompt = None
+                            else:
+                                prompt = f"Generate Bengali music lyrics in style: {music_style} on theme: {query if query else 'Any'} of length suitable for {duration} seconds."
+                            result = gemini_generate(prompt, st.session_state['temperature'], st.session_state['max_tokens']) if prompt else None
                 
                 if result:
                     st.markdown("""
