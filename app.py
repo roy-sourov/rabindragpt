@@ -318,13 +318,16 @@ def main():
         results = st.session_state.get('music_search_results', None)
         total_pages = st.session_state.get('music_total_pages', 0)
         if results is not None and len(results) > 0:
-            st.success(f"Found {len(results)} matching song(s):")
+            st.success(f"Found {len(results)} matches!")
             page_size = 20
             # --- Custom Page Navigation UI ---
             start_idx = st.session_state['current_page_music'] * page_size
             end_idx = min(start_idx + page_size, len(results))
             current_page_data = results.iloc[start_idx:end_idx]
-            for _, row in current_page_data.iterrows():
+            # Accordion behavior: only one expander open at a time
+            if 'music_expander_open' not in st.session_state:
+                st.session_state['music_expander_open'] = None
+            for idx, (_, row) in enumerate(current_page_data.iterrows()):
                 lyrics = row['lyrics']
                 if not isinstance(lyrics, str) or not lyrics.strip():
                     continue  # Skip rows with missing or invalid lyrics
@@ -333,10 +336,24 @@ def main():
                     continue  # Skip header or malformed row
                 def safe(val):
                     return 'অজানা' if str(val).strip() == '?' or str(val).strip() == 'nan' else val
-                with st.expander(f"{first_line} - Rabindranath Tagore"):
+                exp_key = f"music_expander_{start_idx + idx}"
+                expanded = st.session_state['music_expander_open'] == exp_key
+                exp = st.expander(f"{first_line} - Rabindranath Tagore", expanded=expanded)
+                with exp:
+                    # If this expander is opened, set it as the open one
+                    if expanded is False and st.session_state['music_expander_open'] != exp_key:
+                        st.session_state['music_expander_open'] = exp_key
                     col1, col2 = st.columns([2, 1])
                     with col1:
-                        st.markdown(f'<div class="bengali-poem">{lyrics.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
+                        # Ensure lyrics is a string and not a list (which would add commas)
+                        if isinstance(lyrics, list):
+                            lyrics_str = '\n'.join(lyrics)
+                        else:
+                            lyrics_str = str(lyrics)
+                        # Remove only the last comma from the entire lyrics
+                        if lyrics_str.endswith(','):
+                            lyrics_str = lyrics_str[:-1]
+                        st.markdown(f'<div class="bengali-poem">{lyrics_str.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
                     with col2:
                         video_url = str(row.get('youtube_url', '')).strip() if 'youtube_url' in row else ''
                         if not video_url or video_url.lower() == 'nan' or not video_url.startswith('http'):
@@ -370,6 +387,9 @@ def main():
                     )
                     st.markdown(f'<span style=\"font-size: 0.92rem; color: #b0bec5;\">{metadata_line}</span>', unsafe_allow_html=True)
                     st.markdown(f"[View Original]({row['url']})")
+                # If this expander is closed, clear the open state
+                if not exp.expanded and st.session_state['music_expander_open'] == exp_key:
+                    st.session_state['music_expander_open'] = None
             # --- Page Navigation at Bottom ---
             col1, col2, col3 = st.columns([2, 12, 2])
             with col1:
