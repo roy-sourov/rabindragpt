@@ -145,6 +145,53 @@ def main():
                 st.session_state['max_tokens'] = 500
             temperature = st.slider("Creativity Level", 0.1, 2.0, st.session_state['temperature'], key="temperature_slider_sidebar")
             max_tokens = st.slider("Max Tokens", 100, 1000, st.session_state['max_tokens'], key="max_tokens_slider_sidebar")
+            
+            # Music Generation Settings in Sidebar
+            if 'selected_gen_mode' in st.session_state and st.session_state['selected_gen_mode'] == 'Music':
+                st.markdown("---")
+                st.subheader("🎼 Music Settings")
+                
+                # Initialize session state for music generation
+                if 'music_gen_query' not in st.session_state:
+                    st.session_state['music_gen_query'] = ''
+                if 'music_gen_style' not in st.session_state:
+                    st.session_state['music_gen_style'] = 'Rabindra Sangeet'
+                if 'music_gen_raga' not in st.session_state:
+                    st.session_state['music_gen_raga'] = ''
+                if 'music_gen_tala' not in st.session_state:
+                    st.session_state['music_gen_tala'] = ''
+                
+                # Music Style Selection
+                music_style = st.selectbox(
+                    "Music Style",
+                    ["Rabindra Sangeet", "Folk", "Classical", "Modern", "Fusion"],
+                    key="music_gen_style_sidebar",
+                    index=["Rabindra Sangeet", "Folk", "Classical", "Modern", "Fusion"].index(st.session_state['music_gen_style']) if st.session_state['music_gen_style'] in ["Rabindra Sangeet", "Folk", "Classical", "Modern", "Fusion"] else 0
+                )
+                st.session_state['music_gen_style'] = music_style
+                
+                # Query Input
+                query = st.text_input("Enter your query", value=st.session_state['music_gen_query'], placeholder="e.g. Love, Nature, Freedom...", key="music_gen_query_sidebar")
+                st.session_state['music_gen_query'] = query
+                
+                # Raga and Tala Selection (only for Rabindra Sangeet)
+                if music_style == "Rabindra Sangeet":
+                    st.markdown("**রাগ এবং তাল নির্বাচন করুন:**")
+                    try:
+                        df = pd.read_excel("data/tagore.xlsx")
+                        rag_options = [r for r in sorted(df['রাগ'].dropna().unique().tolist()) if str(r).strip() != '?' and str(r).strip() != 'nan']
+                        tal_options = [t for t in sorted(df['তাল'].dropna().unique().tolist()) if str(t).strip() != '?' and str(t).strip() != 'nan']
+                    except Exception:
+                        rag_options, tal_options = [], []
+                    
+                    raga = st.selectbox("রাগ (Raga)", rag_options, key="music_gen_raga_sidebar")
+                    st.session_state['music_gen_raga'] = raga
+                    tala = st.selectbox("তাল (Tala)", tal_options, key="music_gen_tala_sidebar")
+                    st.session_state['music_gen_tala'] = tala
+                
+                # Duration
+                duration = st.slider("Duration (seconds)", 30, 300, 120, key="music_gen_duration_sidebar")
+                st.session_state['music_gen_duration'] = duration
 
         # Utility to show available Gemini models in the sidebar for debugging
         # if st.checkbox('Show available Gemini models (debug)', value=False, key='show_models'):
@@ -165,84 +212,63 @@ def main():
         st.subheader("Poetry Search")
         keyword = st.text_input("Keyword (Bengali or English)", "", key="poetry_search")
         selected_poet = st.session_state.get('selected_poet', 'All')
-        # On search, show a random song from songs.txt
+        # --- Poetry Search Pagination Refactor ---
+        if 'poetry_search_results' not in st.session_state:
+            st.session_state['poetry_search_results'] = None
+        if 'poetry_total_pages' not in st.session_state:
+            st.session_state['poetry_total_pages'] = 0
+        if 'current_page' not in st.session_state:
+            st.session_state['current_page'] = 0
         if st.button("🔍 Search Poetry", key="do_search"):
-            # Reset page to 0 for new search
             st.session_state['current_page'] = 0
             try:
                 df = pd.read_excel("data/tagore.xlsx")
                 if keyword.strip():
-                    # Filter for keyword in lyrics (case-insensitive)
                     matches = df[df['lyrics'].str.contains(keyword, case=False, na=False)]
-                    if not matches.empty:
-                        st.success(f"Found {len(matches)} matching poem(s):")
-                        # Pagination
-                        page_size = 20
-                        total_pages = (len(matches) + page_size - 1) // page_size
-                        
-                        # Initialize page in session state
-                        if 'current_page' not in st.session_state:
-                            st.session_state['current_page'] = 0
-                        
-                        # Page selector
-                        page_options = [f"Page {i+1} of {total_pages}" for i in range(total_pages)]
-                        selected_page = st.selectbox("Select Page", page_options, index=st.session_state['current_page'])
-                        st.session_state['current_page'] = page_options.index(selected_page)
-                        
-                        # Display current page
-                        start_idx = st.session_state['current_page'] * page_size
-                        end_idx = min(start_idx + page_size, len(matches))
-                        current_page_data = matches.iloc[start_idx:end_idx]
-                        
-                        for _, row in current_page_data.iterrows():
-                            first_line = row['lyrics'].splitlines()[0].rstrip('।.,!?,;: ')
-                            def safe(val):
-                                return 'অজানা' if str(val).strip() == '?' or str(val).strip() == 'nan' else val
-                            with st.expander(f"{first_line} - Rabindranath Tagore"):
-                                st.markdown(f'<div class="bengali-poem">{row["lyrics"].replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
-                                st.markdown(f"**রাগ:** {safe(row['রাগ'])}  ")
-                                st.markdown(f"**তাল:** {safe(row['তাল'])}  ")
-                                st.markdown(f"**রচনাকাল (বঙ্গাব্দ):** {safe(row['রচনাকাল (বঙ্গাব্দ)'])}  ")
-                                st.markdown(f"**রচনাকাল (খৃষ্টাব্দ):** {safe(row['রচনাকাল (খৃষ্টাব্দ)'])}  ")
-                                st.markdown(f"**স্বরলিপিকার:** {safe(row['স্বরলিপিকার'])}  ")
-                                st.markdown(f"[View Original]({row['url']})")
-                    else:
-                        st.info("No matching poems found. Try another filter!")
                 else:
-                    # No keyword: show all with pagination
-                    st.success(f"Showing all {len(df)} results from Rabindra Sangeet archive:")
-                    # Pagination
-                    page_size = 20
-                    total_pages = (len(df) + page_size - 1) // page_size
-                    
-                    # Initialize page in session state
-                    if 'current_page' not in st.session_state:
-                        st.session_state['current_page'] = 0
-                    
-                    # Page selector
-                    page_options = [f"Page {i+1} of {total_pages}" for i in range(total_pages)]
-                    selected_page = st.selectbox("Select Page", page_options, index=st.session_state['current_page'], key="page_selector_no_keyword")
-                    st.session_state['current_page'] = page_options.index(selected_page)
-                    
-                    # Display current page
-                    start_idx = st.session_state['current_page'] * page_size
-                    end_idx = min(start_idx + page_size, len(df))
-                    current_page_data = df.iloc[start_idx:end_idx]
-                    
-                    for _, row in current_page_data.iterrows():
-                        first_line = row['lyrics'].splitlines()[0].rstrip('।.,!?,;: ')
-                        def safe(val):
-                            return 'অজানা' if str(val).strip() == '?' or str(val).strip() == 'nan' else val
-                        with st.expander(f"{first_line} - Rabindranath Tagore"):
-                            st.markdown(f'<div class="bengali-poem">{row["lyrics"].replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
-                            st.markdown(f"**রাগ:** {safe(row['রাগ'])}  ")
-                            st.markdown(f"**তাল:** {safe(row['তাল'])}  ")
-                            st.markdown(f"**রচনাকাল (বঙ্গাব্দ):** {safe(row['রচনাকাল (বঙ্গাব্দ)'])}  ")
-                            st.markdown(f"**রচনাকাল (খৃষ্টাব্দ):** {safe(row['রচনাকাল (খৃষ্টাব্দ)'])}  ")
-                            st.markdown(f"**স্বরলিপিকার:** {safe(row['স্বরলিপিকার'])}  ")
-                            st.markdown(f"[View Original]({row['url']})")
+                    matches = df
+                st.session_state['poetry_search_results'] = matches
+                st.session_state['poetry_total_pages'] = (len(matches) + 19) // 20
             except Exception as e:
+                st.session_state['poetry_search_results'] = None
+                st.session_state['poetry_total_pages'] = 0
                 st.error(f"Could not load poetry from songs.txt: {e}")
+        # Show results if available
+        results = st.session_state.get('poetry_search_results', None)
+        total_pages = st.session_state.get('poetry_total_pages', 0)
+        if results is not None and len(results) > 0:
+            st.success(f"Found {len(results)} matching poem(s):")
+            page_size = 20
+            # --- Custom Page Navigation UI ---
+            start_idx = st.session_state['current_page'] * page_size
+            end_idx = min(start_idx + page_size, len(results))
+            current_page_data = results.iloc[start_idx:end_idx]
+            for _, row in current_page_data.iterrows():
+                first_line = row['lyrics'].splitlines()[0].rstrip('।.,!?,;: ')
+                def safe(val):
+                    return 'অজানা' if str(val).strip() == '?' or str(val).strip() == 'nan' else val
+                with st.expander(f"{first_line} - Rabindranath Tagore"):
+                    st.markdown(f'<div class="bengali-poem">{row["lyrics"].replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
+                    st.markdown(f"**রাগ:** {safe(row['রাগ'])}  ")
+                    st.markdown(f"**তাল:** {safe(row['তাল'])}  ")
+                    st.markdown(f"**রচনাকাল (বঙ্গাব্দ):** {safe(row['রচনাকাল (বঙ্গাব্দ)'])}  ")
+                    st.markdown(f"**রচনাকাল (খৃষ্টাব্দ):** {safe(row['রচনাকাল (খৃষ্টাব্দ)'])}  ")
+                    st.markdown(f"**স্বরলিপিকার:** {safe(row['স্বরলিপিকার'])}  ")
+                    st.markdown(f"[View Original]({row['url']})")
+            # --- Page Navigation at Bottom ---
+            col1, col2, col3 = st.columns([2, 12, 2])
+            with col1:
+                if st.button("Previous", key="poetry_prev"):
+                    if st.session_state['current_page'] > 0:
+                        st.session_state['current_page'] -= 1
+            with col2:
+                st.write("")  # Empty space in the middle
+            with col3:
+                if st.button("Next", key="poetry_next"):
+                    if st.session_state['current_page'] < total_pages-1:
+                        st.session_state['current_page'] += 1
+        elif results is not None:
+            st.info("No matching poems found. Try another filter!")
             
     elif st.session_state['active_mode'] == 'search_music':
         # Music Search: search songs.txt, show lyrics and metadata, filter by রাগ and তাল
@@ -261,7 +287,15 @@ def main():
             selected_rag = st.selectbox("রাগ (Raga)", rag_options, key="rag_select")
         with col_tal:
             selected_tal = st.selectbox("তাল (Tala)", tal_options, key="tal_select")
-        if st.button("🔍 Search Music", key="do_search_music"):
+        # --- Music Search Pagination Refactor ---
+        if 'music_search_results' not in st.session_state:
+            st.session_state['music_search_results'] = None
+        if 'music_total_pages' not in st.session_state:
+            st.session_state['music_total_pages'] = 0
+        if 'current_page_music' not in st.session_state:
+            st.session_state['current_page_music'] = 0
+        if st.button("Search Music", key="do_search_music"):
+            st.session_state['current_page_music'] = 0
             try:
                 if df is not None:
                     filtered = df
@@ -271,64 +305,79 @@ def main():
                         filtered = filtered[filtered['রাগ'] == selected_rag]
                     if selected_tal != 'All':
                         filtered = filtered[filtered['তাল'] == selected_tal]
-                    if not filtered.empty:
-                        st.success(f"Found {len(filtered)} matching song(s):")
-                        page_size = 20
-                        total_pages = (len(filtered) + page_size - 1) // page_size
-                        if 'current_page_music' not in st.session_state:
-                            st.session_state['current_page_music'] = 0
-                        page_options = [f"Page {i+1} of {total_pages}" for i in range(total_pages)]
-                        selected_page = st.selectbox("Select Page", page_options, index=st.session_state['current_page_music'], key="page_selector_music")
-                        st.session_state['current_page_music'] = page_options.index(selected_page)
-                        start_idx = st.session_state['current_page_music'] * page_size
-                        end_idx = min(start_idx + page_size, len(filtered))
-                        current_page_data = filtered.iloc[start_idx:end_idx]
-                        for _, row in current_page_data.iterrows():
-                            lyrics = row['lyrics']
-                            if not isinstance(lyrics, str) or not lyrics.strip():
-                                continue  # Skip rows with missing or invalid lyrics
-                            first_line = lyrics.splitlines()[0].rstrip('।.,!?,;: ')
-                            if first_line.strip().lower() == 'youtube_url':
-                                continue  # Skip header or malformed row
-                            def safe(val):
-                                return 'অজানা' if str(val).strip() == '?' or str(val).strip() == 'nan' else val
-                            with st.expander(f"{first_line} - Rabindranath Tagore"):
-                                col1, col2 = st.columns([2, 1])
-                                with col1:
-                                    st.markdown(f'<div class="bengali-poem">{lyrics.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
-                                    st.markdown(f"**রাগ:** {safe(row['রাগ'])}  ")
-                                    st.markdown(f"**তাল:** {safe(row['তাল'])}  ")
-                                    st.markdown(f"**রচনাকাল (বঙ্গাব্দ):** {safe(row['রচনাকাল (বঙ্গাব্দ)'])}  ")
-                                    st.markdown(f"**রচনাকাল (খৃষ্টাব্দ):** {safe(row['রচনাকাল (খৃষ্টাব্দ)'])}  ")
-                                    st.markdown(f"**স্বরলিপিকার:** {safe(row['স্বরলিপিকার'])}  ")
-                                    st.markdown(f"[View Original]({row['url']})")
-                                with col2:
-                                    video_url = str(row.get('youtube_url', '')).strip() if 'youtube_url' in row else ''
-                                    if not video_url or video_url.lower() == 'nan' or not video_url.startswith('http'):
-                                        video_url = "https://www.youtube.com/watch?v=b8JbxVDzB-k&t=942s"
-                                    st.markdown('<div class="video-wrapper">', unsafe_allow_html=True)
-                                    st.video(video_url, format="video/mp4", start_time=0)
-                                    st.markdown("""
-                                    <style>
-                                    .video-wrapper iframe {
-                                        min-width: 800px !important;
-                                        min-height: 450px !important;
-                                        width: 100% !important;
-                                        height: 450px !important;
-                                        max-width: 100% !important;
-                                        margin: 24px 24px 24px 0 !important;
-                                        border-radius: 12px;
-                                        box-shadow: 0 2px 12px rgba(0,0,0,0.15);
-                                    }
-                                    </style>
-                                    </div>
-                                    """, unsafe_allow_html=True)
-                    else:
-                        st.info("No matching songs found. Try another filter!")
+                    st.session_state['music_search_results'] = filtered
+                    st.session_state['music_total_pages'] = (len(filtered) + 19) // 20
                 else:
-                    st.info("Please enter a keyword to search music.")
+                    st.session_state['music_search_results'] = None
+                    st.session_state['music_total_pages'] = 0
             except Exception as e:
+                st.session_state['music_search_results'] = None
+                st.session_state['music_total_pages'] = 0
                 st.error(f"Could not load music from songs.txt: {e}")
+        # Show results if available
+        results = st.session_state.get('music_search_results', None)
+        total_pages = st.session_state.get('music_total_pages', 0)
+        if results is not None and len(results) > 0:
+            st.success(f"Found {len(results)} matching song(s):")
+            page_size = 20
+            # --- Custom Page Navigation UI ---
+            start_idx = st.session_state['current_page_music'] * page_size
+            end_idx = min(start_idx + page_size, len(results))
+            current_page_data = results.iloc[start_idx:end_idx]
+            for _, row in current_page_data.iterrows():
+                lyrics = row['lyrics']
+                if not isinstance(lyrics, str) or not lyrics.strip():
+                    continue  # Skip rows with missing or invalid lyrics
+                first_line = lyrics.splitlines()[0].rstrip('।.,!?,;: ')
+                if first_line.strip().lower() == 'youtube_url':
+                    continue  # Skip header or malformed row
+                def safe(val):
+                    return 'অজানা' if str(val).strip() == '?' or str(val).strip() == 'nan' else val
+                with st.expander(f"{first_line} - Rabindranath Tagore"):
+                    col1, col2 = st.columns([2, 1])
+                    with col1:
+                        st.markdown(f'<div class="bengali-poem">{lyrics.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
+                        st.markdown(f"**রাগ:** {safe(row['রাগ'])}  ")
+                        st.markdown(f"**তাল:** {safe(row['তাল'])}  ")
+                        st.markdown(f"**রচনাকাল (বঙ্গাব্দ):** {safe(row['রচনাকাল (বঙ্গাব্দ)'])}  ")
+                        st.markdown(f"**রচনাকাল (খৃষ্টাব্দ):** {safe(row['রচনাকাল (খৃষ্টাব্দ)'])}  ")
+                        st.markdown(f"**স্বরলিপিকার:** {safe(row['স্বরলিপিকার'])}  ")
+                        st.markdown(f"[View Original]({row['url']})")
+                    with col2:
+                        video_url = str(row.get('youtube_url', '')).strip() if 'youtube_url' in row else ''
+                        if not video_url or video_url.lower() == 'nan' or not video_url.startswith('http'):
+                            video_url = "https://www.youtube.com/watch?v=b8JbxVDzB-k&t=942s"
+                        st.markdown('<div class="video-wrapper">', unsafe_allow_html=True)
+                        st.video(video_url, format="video/mp4", start_time=0)
+                        st.markdown("""
+                        <style>
+                        .video-wrapper iframe {
+                            min-width: 800px !important;
+                            min-height: 450px !important;
+                            width: 100% !important;
+                            height: 450px !important;
+                            max-width: 100% !important;
+                            margin: 24px 24px 24px 0 !important;
+                            border-radius: 12px;
+                            box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+                        }
+                        </style>
+                        </div>
+                        """, unsafe_allow_html=True)
+            # --- Page Navigation at Bottom ---
+            col1, col2, col3 = st.columns([2, 12, 2])
+            with col1:
+                if st.button("Previous", key="music_prev"):
+                    if st.session_state['current_page_music'] > 0:
+                        st.session_state['current_page_music'] -= 1
+            with col2:
+                st.write("")  # Empty space in the middle
+            with col3:
+                if st.button("Next", key="music_next"):
+                    if st.session_state['current_page_music'] < total_pages-1:
+                        st.session_state['current_page_music'] += 1
+        elif results is not None:
+            st.info("No matching songs found. Try another filter!")
     elif st.session_state['active_mode'] == 'generate':
         # Create clickable buttons for generation modes
         st.markdown("""
@@ -410,49 +459,34 @@ def main():
                 <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
                             border-radius: 12px; padding: 1.5rem; margin: 1rem 0; 
                             border: 1px solid #3a3a4e;">
-                    <h4 style="color: #64b5f6; margin-bottom: 1rem;">🎼 Music Settings</h4>
+                    <h4 style="color: #64b5f6; margin-bottom: 1rem;">🎼 Music Generation</h4>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                col1, col2 = st.columns(2)
-                with col1:
-                    music_style = st.selectbox(
-                        "Music Style",
-                        ["Rabindra Sangeet", "Folk", "Classical", "Modern", "Fusion"]
-                    )
-                    query = st.text_input("Enter your query", placeholder="e.g. Love, Nature, Freedom...", key="music_query")
-                    # If Rabindranath Tagore is selected, show Raga and Tala dropdowns
-                    raga = tala = None
-                    if music_style == "Rabindra Sangeet":
-                        try:
-                            df = pd.read_excel("data/tagore.xlsx")
-                            rag_options = [r for r in sorted(df['রাগ'].dropna().unique().tolist()) if str(r).strip() != '?' and str(r).strip() != 'nan']
-                            tal_options = [t for t in sorted(df['তাল'].dropna().unique().tolist()) if str(t).strip() != '?' and str(t).strip() != 'nan']
-                        except Exception:
-                            rag_options, tal_options = [], []
-                        raga = st.selectbox("রাগ (Raga)", rag_options, key="music_gen_raga")
-                        tala = st.selectbox("তাল (Tala)", tal_options, key="music_gen_tala")
-                with col2:
-                    duration = st.slider("Duration (seconds)", 30, 300, 120)
-                    if st.button("🎼 Generate Music Lyrics", key="do_generate_music", use_container_width=True):
-                        with st.spinner("🎵 Generating music lyrics with Gemini..."):
-                            if music_style == "Rabindra Sangeet" and raga and tala:
-                                try:
-                                    df = pd.read_excel("data/tagore.xlsx")
-                                    filtered = df[(df['রাগ'] == raga) & (df['তাল'] == tala)]
-                                    if not filtered.empty:
-                                        ref_row = filtered.sample(1).iloc[0]
-                                        ref_lyrics = ref_row['lyrics']
-                                        prompt = f"Write a Bengali song similar to the following, using raga: {raga} and tala: {tala}. Reference lyrics: {ref_lyrics}"
-                                    else:
-                                        st.warning(f"No matching Rabindra Sangeet found for রাগ: {raga} and তাল: {tala}.")
-                                        prompt = None
-                                except Exception as e:
-                                    st.warning(f"Error loading songs.txt: {e}")
+                st.markdown("Configure your music settings in the sidebar, then click the generate button below.")
+                
+                # Generate Button in main area
+                if st.button("🎼 Generate Music Lyrics", key="do_generate_music", use_container_width=True):
+                    with st.spinner("🎵 Generating music lyrics with Gemini..."):
+                        music_style = st.session_state.get('music_gen_style', 'Rabindra Sangeet')
+                        duration = st.session_state.get('music_gen_duration', 120)
+                        if music_style == "Rabindra Sangeet" and st.session_state.get('music_gen_raga') and st.session_state.get('music_gen_tala'):
+                            try:
+                                df = pd.read_excel("data/tagore.xlsx")
+                                filtered = df[(df['রাগ'] == st.session_state['music_gen_raga']) & (df['তাল'] == st.session_state['music_gen_tala'])]
+                                if not filtered.empty:
+                                    ref_row = filtered.sample(1).iloc[0]
+                                    ref_lyrics = ref_row['lyrics']
+                                    prompt = f"Write a Bengali song similar to the following, using raga: {st.session_state['music_gen_raga']} and tala: {st.session_state['music_gen_tala']}. Reference lyrics: {ref_lyrics}"
+                                else:
+                                    st.warning(f"No matching Rabindra Sangeet found for রাগ: {st.session_state['music_gen_raga']} and তাল: {st.session_state['music_gen_tala']}.")
                                     prompt = None
-                            else:
-                                prompt = f"Generate Bengali music lyrics in style: {music_style} on theme: {query if query else 'Any'} of length suitable for {duration} seconds."
-                            result = gemini_generate(prompt, st.session_state['temperature'], st.session_state['max_tokens']) if prompt else None
+                            except Exception as e:
+                                st.warning(f"Error loading songs.txt: {e}")
+                                prompt = None
+                        else:
+                            prompt = f"Generate Bengali music lyrics in style: {music_style} on theme: {st.session_state.get('music_gen_query', 'Any')} of length suitable for {duration} seconds."
+                        result = gemini_generate(prompt, st.session_state['temperature'], st.session_state['max_tokens']) if prompt else None
                 
                 if result:
                     st.markdown("""
