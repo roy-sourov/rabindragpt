@@ -123,7 +123,7 @@ def main():
             </div>
         ''', unsafe_allow_html=True)
         # Mode dropdown
-        st.session_state['active_mode'] = st.selectbox("Mode", ["Search Poetry", "Search Music", "Generate"], key="mode_select").lower().replace(' ', '_')
+        st.session_state['active_mode'] = st.selectbox("Mode", ["Search Music", "Search Poetry", "Generate"], key="mode_select").lower().replace(' ', '_')
 
         # Poet name dropdown for search mode
         poet_options = [
@@ -147,14 +147,14 @@ def main():
             max_tokens = st.slider("Max Tokens", 100, 1000, st.session_state['max_tokens'], key="max_tokens_slider_sidebar")
 
         # Utility to show available Gemini models in the sidebar for debugging
-        if st.checkbox('Show available Gemini models (debug)', value=False, key='show_models'):
-            try:
-                models = genai.list_models()
-                st.write('Available Gemini models:')
-                for m in models:
-                    st.write(m.name)
-            except Exception as e:
-                st.error(f"Error listing models: {e}")
+        # if st.checkbox('Show available Gemini models (debug)', value=False, key='show_models'):
+        #     try:
+        #         models = genai.list_models()
+        #         st.write('Available Gemini models:')
+        #         for m in models:
+        #             st.write(m.name)
+        #     except Exception as e:
+        #         st.error(f"Error listing models: {e}")
 
     # Main content area
     if 'active_mode' not in st.session_state:
@@ -170,7 +170,7 @@ def main():
             # Reset page to 0 for new search
             st.session_state['current_page'] = 0
             try:
-                df = pd.read_csv("data/songs.txt")
+                df = pd.read_excel("data/tagore.xlsx")
                 if keyword.strip():
                     # Filter for keyword in lyrics (case-insensitive)
                     matches = df[df['lyrics'].str.contains(keyword, case=False, na=False)]
@@ -197,7 +197,7 @@ def main():
                         for _, row in current_page_data.iterrows():
                             first_line = row['lyrics'].splitlines()[0].rstrip('।.,!?,;: ')
                             def safe(val):
-                                return 'অজানা' if str(val).strip() == '?' else val
+                                return 'অজানা' if str(val).strip() == '?' or str(val).strip() == 'nan' else val
                             with st.expander(f"{first_line} - Rabindranath Tagore"):
                                 st.markdown(f'<div class="bengali-poem">{row["lyrics"].replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
                                 st.markdown(f"**রাগ:** {safe(row['রাগ'])}  ")
@@ -232,7 +232,7 @@ def main():
                     for _, row in current_page_data.iterrows():
                         first_line = row['lyrics'].splitlines()[0].rstrip('।.,!?,;: ')
                         def safe(val):
-                            return 'অজানা' if str(val).strip() == '?' else val
+                            return 'অজানা' if str(val).strip() == '?' or str(val).strip() == 'nan' else val
                         with st.expander(f"{first_line} - Rabindranath Tagore"):
                             st.markdown(f'<div class="bengali-poem">{row["lyrics"].replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
                             st.markdown(f"**রাগ:** {safe(row['রাগ'])}  ")
@@ -248,9 +248,9 @@ def main():
         # Music Search: search songs.txt, show lyrics and metadata, filter by রাগ and তাল
         st.subheader("Music Search")
         try:
-            df = pd.read_csv("data/songs.txt")
-            rag_options = ['All'] + sorted([r for r in df['রাগ'].dropna().unique().tolist() if str(r).strip() != '?'])
-            tal_options = ['All'] + sorted([t for t in df['তাল'].dropna().unique().tolist() if str(t).strip() != '?'])
+            df = pd.read_excel("data/tagore.xlsx")
+            rag_options = ['All'] + sorted([r for r in df['রাগ'].dropna().unique().tolist() if str(r).strip() != '?' and str(r).strip() != 'nan'])
+            tal_options = ['All'] + sorted([t for t in df['তাল'].dropna().unique().tolist() if str(t).strip() != '?' and str(t).strip() != 'nan'])
         except Exception as e:
             st.error(f"Could not load music from songs.txt: {e}")
             rag_options, tal_options = ['All'], ['All']
@@ -284,17 +284,45 @@ def main():
                         end_idx = min(start_idx + page_size, len(filtered))
                         current_page_data = filtered.iloc[start_idx:end_idx]
                         for _, row in current_page_data.iterrows():
-                            first_line = row['lyrics'].splitlines()[0].rstrip('।.,!?,;: ')
+                            lyrics = row['lyrics']
+                            if not isinstance(lyrics, str) or not lyrics.strip():
+                                continue  # Skip rows with missing or invalid lyrics
+                            first_line = lyrics.splitlines()[0].rstrip('।.,!?,;: ')
+                            if first_line.strip().lower() == 'youtube_url':
+                                continue  # Skip header or malformed row
                             def safe(val):
-                                return 'অজানা' if str(val).strip() == '?' else val
+                                return 'অজানা' if str(val).strip() == '?' or str(val).strip() == 'nan' else val
                             with st.expander(f"{first_line} - Rabindranath Tagore"):
-                                st.markdown(f'<div class="bengali-poem">{row["lyrics"].replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
-                                st.markdown(f"**রাগ:** {safe(row['রাগ'])}  ")
-                                st.markdown(f"**তাল:** {safe(row['তাল'])}  ")
-                                st.markdown(f"**রচনাকাল (বঙ্গাব্দ):** {safe(row['রচনাকাল (বঙ্গাব্দ)'])}  ")
-                                st.markdown(f"**রচনাকাল (খৃষ্টাব্দ):** {safe(row['রচনাকাল (খৃষ্টাব্দ)'])}  ")
-                                st.markdown(f"**স্বরলিপিকার:** {safe(row['স্বরলিপিকার'])}  ")
-                                st.markdown(f"[View Original]({row['url']})")
+                                col1, col2 = st.columns([2, 1])
+                                with col1:
+                                    st.markdown(f'<div class="bengali-poem">{lyrics.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
+                                    st.markdown(f"**রাগ:** {safe(row['রাগ'])}  ")
+                                    st.markdown(f"**তাল:** {safe(row['তাল'])}  ")
+                                    st.markdown(f"**রচনাকাল (বঙ্গাব্দ):** {safe(row['রচনাকাল (বঙ্গাব্দ)'])}  ")
+                                    st.markdown(f"**রচনাকাল (খৃষ্টাব্দ):** {safe(row['রচনাকাল (খৃষ্টাব্দ)'])}  ")
+                                    st.markdown(f"**স্বরলিপিকার:** {safe(row['স্বরলিপিকার'])}  ")
+                                    st.markdown(f"[View Original]({row['url']})")
+                                with col2:
+                                    video_url = str(row.get('youtube_url', '')).strip() if 'youtube_url' in row else ''
+                                    if not video_url or video_url.lower() == 'nan' or not video_url.startswith('http'):
+                                        video_url = "https://www.youtube.com/watch?v=b8JbxVDzB-k&t=942s"
+                                    st.markdown('<div class="video-wrapper">', unsafe_allow_html=True)
+                                    st.video(video_url, format="video/mp4", start_time=0)
+                                    st.markdown("""
+                                    <style>
+                                    .video-wrapper iframe {
+                                        min-width: 800px !important;
+                                        min-height: 450px !important;
+                                        width: 100% !important;
+                                        height: 450px !important;
+                                        max-width: 100% !important;
+                                        margin: 24px 24px 24px 0 !important;
+                                        border-radius: 12px;
+                                        box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+                                    }
+                                    </style>
+                                    </div>
+                                    """, unsafe_allow_html=True)
                     else:
                         st.info("No matching songs found. Try another filter!")
                 else:
@@ -397,9 +425,9 @@ def main():
                     raga = tala = None
                     if music_style == "Rabindra Sangeet":
                         try:
-                            df = pd.read_csv("data/songs.txt")
-                            rag_options = [r for r in sorted(df['রাগ'].dropna().unique().tolist()) if str(r).strip() != '?']
-                            tal_options = [t for t in sorted(df['তাল'].dropna().unique().tolist()) if str(t).strip() != '?']
+                            df = pd.read_excel("data/tagore.xlsx")
+                            rag_options = [r for r in sorted(df['রাগ'].dropna().unique().tolist()) if str(r).strip() != '?' and str(r).strip() != 'nan']
+                            tal_options = [t for t in sorted(df['তাল'].dropna().unique().tolist()) if str(t).strip() != '?' and str(t).strip() != 'nan']
                         except Exception:
                             rag_options, tal_options = [], []
                         raga = st.selectbox("রাগ (Raga)", rag_options, key="music_gen_raga")
@@ -410,7 +438,7 @@ def main():
                         with st.spinner("🎵 Generating music lyrics with Gemini..."):
                             if music_style == "Rabindra Sangeet" and raga and tala:
                                 try:
-                                    df = pd.read_csv("data/songs.txt")
+                                    df = pd.read_excel("data/tagore.xlsx")
                                     filtered = df[(df['রাগ'] == raga) & (df['তাল'] == tala)]
                                     if not filtered.empty:
                                         ref_row = filtered.sample(1).iloc[0]
