@@ -337,12 +337,6 @@ def main():
                     col1, col2 = st.columns([2, 1])
                     with col1:
                         st.markdown(f'<div class="bengali-poem">{lyrics.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
-                        st.markdown(f"**রাগ:** {safe(row['রাগ'])}  ")
-                        st.markdown(f"**তাল:** {safe(row['তাল'])}  ")
-                        st.markdown(f"**রচনাকাল (বঙ্গাব্দ):** {safe(row['রচনাকাল (বঙ্গাব্দ)'])}  ")
-                        st.markdown(f"**রচনাকাল (খৃষ্টাব্দ):** {safe(row['রচনাকাল (খৃষ্টাব্দ)'])}  ")
-                        st.markdown(f"**স্বরলিপিকার:** {safe(row['স্বরলিপিকার'])}  ")
-                        st.markdown(f"[View Original]({row['url']})")
                     with col2:
                         video_url = str(row.get('youtube_url', '')).strip() if 'youtube_url' in row else ''
                         if not video_url or video_url.lower() == 'nan' or not video_url.startswith('http'):
@@ -364,6 +358,18 @@ def main():
                         </style>
                         </div>
                         """, unsafe_allow_html=True)
+                    # Horizontal line below both columns
+                    st.markdown('---')
+                    # Metadata below the line, left-aligned
+                    metadata_line = (
+                        f"**রাগ:** {safe(row['রাগ'])} &nbsp;|&nbsp; "
+                        f"**তাল:** {safe(row['তাল'])} &nbsp;|&nbsp; "
+                        f"**রচনাকাল (বঙ্গাব্দ):** {safe(row['রচনাকাল (বঙ্গাব্দ)'])} &nbsp;|&nbsp; "
+                        f"**রচনাকাল (খৃষ্টাব্দ):** {safe(row['রচনাকাল (খৃষ্টাব্দ)'])} &nbsp;|&nbsp; "
+                        f"**স্বরলিপিকার:** {safe(row['স্বরলিপিকার'])}"
+                    )
+                    st.markdown(f'<span style=\"font-size: 0.92rem; color: #b0bec5;\">{metadata_line}</span>', unsafe_allow_html=True)
+                    st.markdown(f"[View Original]({row['url']})")
             # --- Page Navigation at Bottom ---
             col1, col2, col3 = st.columns([2, 12, 2])
             with col1:
