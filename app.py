@@ -258,13 +258,13 @@ def main():
             # --- Page Navigation at Bottom ---
             col1, col2, col3 = st.columns([2, 12, 2])
             with col1:
-                if st.button("Previous", key="poetry_prev"):
+                if st.button("Previous", key="poetry_prev", use_container_width=True):
                     if st.session_state['current_page'] > 0:
                         st.session_state['current_page'] -= 1
             with col2:
                 st.write("")  # Empty space in the middle
             with col3:
-                if st.button("Next", key="poetry_next"):
+                if st.button("Next", key="poetry_next", use_container_width=True):
                     if st.session_state['current_page'] < total_pages-1:
                         st.session_state['current_page'] += 1
         elif results is not None:
@@ -400,13 +400,13 @@ def main():
             # --- Page Navigation at Bottom ---
             col1, col2, col3 = st.columns([2, 12, 2])
             with col1:
-                if st.button("Previous", key="music_prev"):
+                if st.button("Previous", key="music_prev", use_container_width=True):
                     if st.session_state['current_page_music'] > 0:
                         st.session_state['current_page_music'] -= 1
             with col2:
                 st.write("")  # Empty space in the middle
             with col3:
-                if st.button("Next", key="music_next"):
+                if st.button("Next", key="music_next", use_container_width=True):
                     if st.session_state['current_page_music'] < total_pages-1:
                         st.session_state['current_page_music'] += 1
         elif results is not None:
