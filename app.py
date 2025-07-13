@@ -123,8 +123,24 @@ def main():
             "Rabindranath Tagore",
             "Jibanananda Das"
         ]
+        
+        # Lyricist name dropdown for search mode
+        lyricist_options = [
+            "All",
+            "Rabindranath Tagore",
+            "Dwijendralal Ray",
+            "Atulprasad Sen",
+            "Rajnikant Sen",
+            "Kazi Nazrul Islam",
+            "Salil Chowdhury",
+            "Hemanta Mukhopadhyay"
+        ]
+        
         if st.session_state['active_mode'] == 'search_poetry':
             st.session_state['selected_poet'] = st.selectbox("Poet Name", poet_options, key="poet_name_select")
+
+        if st.session_state['active_mode'] == 'search_music':
+            st.session_state['selected_lyricist'] = st.selectbox("Lyricist Name", lyricist_options, key="lyricist_name_select")
 
         if st.session_state['active_mode'] == 'generate':
             st.header("Settings")
@@ -294,6 +310,15 @@ def main():
                         filtered = filtered[filtered['রাগ'] == selected_rag]
                     if selected_tal != 'All':
                         filtered = filtered[filtered['তাল'] == selected_tal]
+                    # Filter by selected lyricist
+                    selected_lyricist = st.session_state.get('selected_lyricist', 'All')
+                    if selected_lyricist != 'All':
+                        if selected_lyricist == 'Rabindranath Tagore':
+                            # All current data is from Tagore, so show all results
+                            pass
+                        else:
+                            # For other lyricists, no data available yet
+                            filtered = pd.DataFrame()  # Empty dataframe
                     st.session_state['music_search_results'] = filtered
                     st.session_state['music_total_pages'] = (len(filtered) + 19) // 20
                 else:
@@ -399,7 +424,11 @@ def main():
                     if st.session_state['current_page_music'] < total_pages-1:
                         st.session_state['current_page_music'] += 1
         elif results is not None:
-            st.info("No matching songs found. Try another filter!")
+            selected_lyricist = st.session_state.get('selected_lyricist', 'All')
+            if selected_lyricist != 'All' and selected_lyricist != 'Rabindranath Tagore':
+                st.info(f"No songs available for {selected_lyricist} yet. Currently only Rabindranath Tagore's songs are available in our database.")
+            else:
+                st.info("No matching songs found. Try another filter!")
     elif st.session_state['active_mode'] == 'generate':
         # Create clickable buttons for generation modes
         st.markdown("""
