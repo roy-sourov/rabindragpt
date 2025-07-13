@@ -350,9 +350,16 @@ def main():
                             lyrics_str = '\n'.join(lyrics)
                         else:
                             lyrics_str = str(lyrics)
-                        # Remove only the last comma from the entire lyrics
-                        if lyrics_str.endswith(','):
-                            lyrics_str = lyrics_str[:-1]
+                        # Remove only one trailing comma from each line
+                        lines = lyrics_str.split('\n')
+                        cleaned_lines = []
+                        for line in lines:
+                            if line.strip().endswith(','):
+                                # Remove only one comma from the end
+                                cleaned_lines.append(line[:-1] if line.endswith(',') else line)
+                            else:
+                                cleaned_lines.append(line)
+                        lyrics_str = '\n'.join(cleaned_lines)
                         st.markdown(f'<div class="bengali-poem">{lyrics_str.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
                     with col2:
                         video_url = str(row.get('youtube_url', '')).strip() if 'youtube_url' in row else ''
