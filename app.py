@@ -406,8 +406,13 @@ def main():
                         f"**রচনাকাল (খৃষ্টাব্দ):** {safe(row['রচনাকাল (খৃষ্টাব্দ)'])} &nbsp;|&nbsp; "
                         f"**স্বরলিপিকার:** {safe(row['স্বরলিপিকার'])}"
                     )
-                    st.markdown(f'<span style=\"font-size: 0.92rem; color: #b0bec5;\">{metadata_line}</span>', unsafe_allow_html=True)
+                    st.markdown(f'<span style="font-size: 0.92rem; color: #b0bec5;">{metadata_line}</span>', unsafe_allow_html=True)
                     st.markdown(f"[View Original]({row['url']})")
+                    # Song ID at bottom right (universally unique, based on Excel row)
+                    song_id = row.name + 1  # DataFrame index is 0-based, so add 1 for display
+                    st.markdown(f'''<div style="position: relative; height: 24px;">
+                        <span style="position: absolute; right: 0; bottom: 0; font-size: 1.1rem; color: #90caf9; opacity: 0.85; font-weight: bold;">#{song_id}</span>
+                    </div>''', unsafe_allow_html=True)
                 # If this expander is closed, clear the open state
                 if not exp.expanded and st.session_state['music_expander_open'] == exp_key:
                     st.session_state['music_expander_open'] = None
