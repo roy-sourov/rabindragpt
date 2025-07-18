@@ -111,7 +111,7 @@ def main():
                     <img src="data:image/png;base64,{tagore_v1_b64}" style="width: 180px; max-width: 80%; display: block; margin-left: auto; margin-right: auto; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); border: 2px solid #3a3a4e; padding: 8px;" />
                 </div>
             ''', unsafe_allow_html=True)
-        # Mode dropdown
+        # Remove Admin Portal from the mode dropdown
         st.session_state['active_mode'] = st.selectbox("Mode", ["Search Music", "Search Poetry", "Generate", "Read Blog"], key="mode_select").lower().replace(' ', '_')
 
         # Poet name dropdown for search mode
@@ -208,10 +208,100 @@ def main():
         #     except Exception as e:
         #         st.error(f"Error listing models: {e}")
 
+        # Place Access Level dropdown at the absolute bottom of the sidebar
+        access_level_placeholder = st.sidebar.empty()
+        with access_level_placeholder:
+            st.markdown("<hr style='margin:2rem 0;'>", unsafe_allow_html=True)
+            if 'access_level' not in st.session_state:
+                st.session_state['access_level'] = 'User'
+            access_level = st.selectbox('Access Level', ['User', 'Admin'], key='access_level_select', index=0 if st.session_state['access_level'] == 'User' else 1)
+            if access_level != st.session_state['access_level']:
+                st.session_state['access_level'] = access_level
+                if access_level == 'User':
+                    st.session_state['show_admin_portal'] = False
+                    st.session_state['admin_logged_in'] = False
+                else:
+                    st.session_state['show_admin_portal'] = True
+        # Keep show_admin_portal in sync with access_level
+        if st.session_state['access_level'] == 'Admin':
+            st.session_state['show_admin_portal'] = True
+        else:
+            st.session_state['show_admin_portal'] = False
+
     # Main content area
     if 'active_mode' not in st.session_state:
         st.session_state['active_mode'] = 'search_poetry'  # default to search poetry
     # Use only st.session_state['active_mode'] for logic
+
+    # Show admin login form as a modal or at the top of main area if admin portal is triggered
+    if st.session_state.get('show_admin_portal', False) and not st.session_state.get('admin_logged_in', False):
+        st.subheader("Admin Portal Login")
+        with st.form("admin_login_form"):
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            submitted = st.form_submit_button("Login")
+            if submitted:
+                if username == "sourovroy" and password == "SourovBairagi@1998":
+                    st.session_state['admin_logged_in'] = True
+                    st.success("Logged in as admin!")
+                else:
+                    st.error("Invalid credentials.")
+        st.stop()
+
+    if st.session_state.get('admin_logged_in', False):
+        st.subheader("Edit YouTube Links (Admin)")
+        try:
+            df = pd.read_excel("data/tagore.xlsx")
+        except Exception as e:
+            st.error(f"Could not load songs: {e}")
+            df = None
+        if df is not None:
+            for idx, row in df.iterrows():
+                # Determine if YouTube link is missing
+                current_url = row.get('youtube_url', '') if 'youtube_url' in row else ''
+                url_missing = not current_url or str(current_url).lower() == 'nan' or not str(current_url).startswith('http')
+                expander_label = f"ID#{idx}"
+                if url_missing:
+                    expander_label = f"🟠 {expander_label} (No YouTube Link)"
+                with st.expander(expander_label):
+                    # Show lyrics above the YouTube URL
+                    lyrics = row.get('lyrics', '')
+                    if isinstance(lyrics, list):
+                        lyrics_str = '\n'.join(lyrics)
+                    else:
+                        lyrics_str = str(lyrics)
+                    style = "background: #fffde7; border: 2px solid #ff9800; border-radius: 8px; padding: 8px; margin-bottom: 1rem; color: #333;" if url_missing else "margin-bottom: 1rem; color: #333;"
+                    st.markdown(f'<div class="bengali-poem" style="{style}">{lyrics_str.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
+                    st.markdown(f"**Current YouTube URL:** {current_url}")
+
+                    edit_btn_key = f"edit_yt_btn_{idx}"
+                    edit_state_key = f"edit_yt_state_{idx}"
+                    url_key = f"yturl_{idx}"
+                    update_key = f"update_{idx}"
+
+                    if edit_state_key not in st.session_state:
+                        st.session_state[edit_state_key] = False
+                    if url_key not in st.session_state:
+                        st.session_state[url_key] = str(current_url)
+
+                    if not st.session_state[edit_state_key]:
+                        if st.button("Edit", key=edit_btn_key):
+                            st.session_state[edit_state_key] = True
+                    else:
+                        new_url = st.text_input("New YouTube URL", value=st.session_state[url_key], key=url_key)
+                        if st.button("Update", key=update_key):
+                            df.at[idx, 'youtube_url'] = new_url
+                            try:
+                                df.to_excel("data/tagore.xlsx", index=False)
+                                st.success("YouTube URL updated!")
+                                st.session_state[edit_state_key] = False
+                                # Do NOT assign to st.session_state[url_key] here
+                            except Exception as e:
+                                st.error(f"Failed to update Excel: {e}")
+            if st.button("Logout (Admin)"):
+                st.session_state['admin_logged_in'] = False
+                st.session_state['show_admin_portal'] = False
+        st.stop()
     if st.session_state['active_mode'] == 'search_poetry':
         # Poetry Search tools with additional filters
         st.subheader("Poetry Search")
