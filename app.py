@@ -86,7 +86,7 @@ def gemini_generate(prompt, temperature=0.8, max_tokens=500):
 def main():
     # Header Banner with RabindraGPT (center only)
     banner_html = '''
-        <div style="display: flex; align-items: center; width: 100%; height: 160px; margin-bottom: 2rem; border-radius: 18px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.30); background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);">
+        <div style="display: flex; align-items: center; width: 100%; height: 180px; margin-bottom: 2rem; border-radius: 18px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.30); background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);">
             <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;">
                 <h1 style="font-size: 2.5rem; font-weight: bold; color: #64b5f6; margin-bottom: 0.5rem; letter-spacing: 2px; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">RabindraGPT</h1>
             </div>
