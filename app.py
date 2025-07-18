@@ -389,7 +389,17 @@ def main():
             st.session_state['music_total_pages'] = 0
         if 'current_page_music' not in st.session_state:
             st.session_state['current_page_music'] = 0
-        if st.button("Search Music", key="do_search_music"):
+        col_btn, col_msg = st.columns([2, 3])
+        with col_btn:
+            search_clicked = st.button("Search Music", key="do_search_music")
+        with col_msg:
+            results = st.session_state.get('music_search_results', None)
+            if results is not None and len(results) > 0:
+                st.markdown(
+                    f"<div style='color: #388e3c; font-weight: bold; text-align: right; font-size: 1.1rem;'>Found {len(results)} matches!</div>",
+                    unsafe_allow_html=True
+                )
+        if search_clicked:
             st.session_state['current_page_music'] = 0
             try:
                 if df is not None:
@@ -422,7 +432,6 @@ def main():
         results = st.session_state.get('music_search_results', None)
         total_pages = st.session_state.get('music_total_pages', 0)
         if results is not None and len(results) > 0:
-            st.success(f"Found {len(results)} matches!")
             page_size = 20
             # --- Custom Page Navigation UI ---
             start_idx = st.session_state['current_page_music'] * page_size
