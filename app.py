@@ -57,6 +57,40 @@ if not GEMINI_API_KEY:
 
 genai.configure(api_key=GEMINI_API_KEY)
 
+def load_music_data():
+    """Load music data from pickle file or Google Drive if pickle doesn't exist"""
+    pickle_path = "songs/tagore.pkl"
+    
+    # Try to load from pickle first
+    if os.path.exists(pickle_path):
+        try:
+            df = pd.read_pickle(pickle_path)
+            return df
+        except Exception as e:
+            st.warning(f"Could not load from pickle: {e}")
+    
+    # If pickle doesn't exist or fails, load from Google Drive and create pickle
+    try:
+        sheet_id = "14usErsJJZU82Thx1Jl4D93cTPyN0ea8Mq7nsYzgtZP4"
+        sheet_name = "tagore"
+        
+        csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&sheet={sheet_name}"
+        
+        df = pd.read_csv(csv_url)
+        
+        # Save to pickle for future use
+        try:
+            os.makedirs("songs", exist_ok=True)
+            df.to_pickle(pickle_path)
+            st.success("✅ Data loaded from Google Drive and saved locally")
+        except Exception as e:
+            st.warning(f"Could not save pickle: {e}")
+        
+        return df
+    except Exception as e:
+        st.error(f"Could not load music from Google Drive: {e}")
+        return pd.DataFrame()
+
 def gemini_generate(prompt, temperature=0.8, max_tokens=500):
     model = genai.GenerativeModel('models/gemini-1.5-flash')
     response = model.generate_content(prompt, generation_config={
@@ -183,7 +217,7 @@ def main():
                 if music_style == "Rabindra Sangeet":
                     st.markdown("**রাগ এবং তাল নির্বাচন করুন:**")
                     try:
-                        df = pd.read_excel("data/tagore.xlsx")
+                        df = load_music_data()
                         rag_options = [r for r in sorted(df['রাগ'].dropna().unique().tolist()) if str(r).strip() != '?' and str(r).strip() != 'nan']
                         tal_options = [t for t in sorted(df['তাল'].dropna().unique().tolist()) if str(t).strip() != '?' and str(t).strip() != 'nan']
                     except Exception:
@@ -208,10 +242,12 @@ def main():
         #     except Exception as e:
         #         st.error(f"Error listing models: {e}")
 
+
+        
         # Place Access Level dropdown at the absolute bottom of the sidebar
         access_level_placeholder = st.sidebar.empty()
         with access_level_placeholder:
-            st.markdown("<hr style='margin:2rem 0;'>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin:1rem 0;'>", unsafe_allow_html=True)
             if 'access_level' not in st.session_state:
                 st.session_state['access_level'] = 'User'
             access_level = st.selectbox('Access Level', ['User', 'Admin'], key='access_level_select', index=0 if st.session_state['access_level'] == 'User' else 1)
@@ -251,7 +287,7 @@ def main():
     if st.session_state.get('admin_logged_in', False):
         st.subheader("Edit YouTube Links (Admin)")
         try:
-            df = pd.read_excel("data/tagore.xlsx")
+            df = load_music_data()
         except Exception as e:
             st.error(f"Could not load songs: {e}")
             df = None
@@ -290,14 +326,12 @@ def main():
                     else:
                         new_url = st.text_input("New YouTube URL", value=st.session_state[url_key], key=url_key)
                         if st.button("Update", key=update_key):
-                            df.at[idx, 'youtube_url'] = new_url
-                            try:
-                                df.to_excel("data/tagore.xlsx", index=False)
-                                st.success("YouTube URL updated!")
-                                st.session_state[edit_state_key] = False
-                                # Do NOT assign to st.session_state[url_key] here
-                            except Exception as e:
-                                st.error(f"Failed to update Excel: {e}")
+                            # Note: Google Drive updates require Google Sheets API
+                            # For now, this functionality is disabled
+                            st.warning("⚠️ YouTube URL updates are currently disabled. Google Drive integration requires additional API setup.")
+                            st.info("To enable updates, you'll need to implement Google Sheets API integration.")
+                            st.session_state[edit_state_key] = False
+                            # Do NOT assign to st.session_state[url_key] here
             if st.button("Logout (Admin)"):
                 st.session_state['admin_logged_in'] = False
                 st.session_state['show_admin_portal'] = False
@@ -317,7 +351,7 @@ def main():
         if st.button("🔍 Search Poetry", key="do_search"):
             st.session_state['current_page'] = 0
             try:
-                df = pd.read_excel("data/tagore.xlsx")
+                df = load_music_data()
                 if keyword.strip():
                     matches = df[df['lyrics'].str.contains(keyword, case=False, na=False)]
                 else:
@@ -327,7 +361,7 @@ def main():
             except Exception as e:
                 st.session_state['poetry_search_results'] = None
                 st.session_state['poetry_total_pages'] = 0
-                st.error(f"Could not load poetry from songs.txt: {e}")
+                st.error(f"Could not load poetry from Google Drive: {e}")
         # Show results if available
         results = st.session_state.get('poetry_search_results', None)
         total_pages = st.session_state.get('poetry_total_pages', 0)
@@ -366,14 +400,14 @@ def main():
             st.info("No matching poems found. Try another filter!")
             
     elif st.session_state['active_mode'] == 'search_music':
-        # Music Search: search songs.txt, show lyrics and metadata, filter by রাগ and তাল
+        # Music Search: search Google Drive, show lyrics and metadata, filter by রাগ and তাল
         st.subheader("Music Search")
         try:
-            df = pd.read_excel("data/tagore.xlsx")
+            df = load_music_data()
             rag_options = ['All'] + sorted([r for r in df['রাগ'].dropna().unique().tolist() if str(r).strip() != '?' and str(r).strip() != 'nan'])
             tal_options = ['All'] + sorted([t for t in df['তাল'].dropna().unique().tolist() if str(t).strip() != '?' and str(t).strip() != 'nan'])
         except Exception as e:
-            st.error(f"Could not load music from songs.txt: {e}")
+            st.error(f"Could not load music from Google Drive: {e}")
             rag_options, tal_options = ['All'], ['All']
             df = None
         keyword = st.text_input("Keyword (Bengali or English)", "", key="music_search")
@@ -427,7 +461,7 @@ def main():
             except Exception as e:
                 st.session_state['music_search_results'] = None
                 st.session_state['music_total_pages'] = 0
-                st.error(f"Could not load music from songs.txt: {e}")
+                st.error(f"Could not load music from Google Drive: {e}")
         # Show results if available
         results = st.session_state.get('music_search_results', None)
         total_pages = st.session_state.get('music_total_pages', 0)
@@ -627,7 +661,7 @@ def main():
                         duration = st.session_state.get('music_gen_duration', 120)
                         if music_style == "Rabindra Sangeet" and st.session_state.get('music_gen_raga') and st.session_state.get('music_gen_tala'):
                             try:
-                                df = pd.read_excel("data/tagore.xlsx")
+                                df = load_music_data()
                                 filtered = df[(df['রাগ'] == st.session_state['music_gen_raga']) & (df['তাল'] == st.session_state['music_gen_tala'])]
                                 if not filtered.empty:
                                     ref_row = filtered.sample(1).iloc[0]
@@ -637,7 +671,7 @@ def main():
                                     st.warning(f"No matching Rabindra Sangeet found for রাগ: {st.session_state['music_gen_raga']} and তাল: {st.session_state['music_gen_tala']}.")
                                     prompt = None
                             except Exception as e:
-                                st.warning(f"Error loading songs.txt: {e}")
+                                st.warning(f"Error loading from Google Drive: {e}")
                                 prompt = None
                         else:
                             prompt = f"Generate Bengali music lyrics in style: {music_style} on theme: {st.session_state.get('music_gen_query', 'Any')} of length suitable for {duration} seconds."
