@@ -779,9 +779,9 @@ def main():
     # Footer
     st.markdown("---")
     st.markdown("""
-    <div style='text-align: center; color: #666;'>
-        <p>Made with ❤️ for Bengali culture and literature</p>
-        <p>Powered by Sourov Roy and Google Gemini</p>
+    <div style="text-align: center; color: #666;">
+        <p>Celebrating Bengali Culture, Creativity, and Soul</p>
+        <p>Powered by <a href="https://www.linkedin.com/in/sourovroy-ai/" target="_blank" style="color: #666; text-decoration: underline;">Sourov Roy</a> and Google Gemini</p>
     </div>
     """, unsafe_allow_html=True)
 
