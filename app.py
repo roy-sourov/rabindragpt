@@ -9,6 +9,7 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 from PIL import Image
 import random
+import re
 
 # Load environment variables
 load_dotenv()
@@ -91,6 +92,51 @@ def load_music_data():
         st.error(f"Could not load music from Google Drive: {e}")
         return pd.DataFrame()
 
+def load_dictionary_data():
+    """Load dictionary data from Google Sheet"""
+    try:
+        sheet_id = "1WCkGF8wzS3YVACJC9YleFHEkx5K0XGmFja4xteFs2hw"
+        csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
+        df = pd.read_csv(csv_url)
+        return df
+    except Exception as e:
+        st.error(f"Could not load dictionary data: {e}")
+        return pd.DataFrame()
+
+def find_suffix_matches(query_word, tokens_df, top_n=20):
+    """Find tokens with longest suffix match to the query word"""
+    if query_word.strip() == "":
+        return []
+    
+    matches = []
+    query_word = query_word.strip()
+    
+    for _, row in tokens_df.iterrows():
+        token = str(row['token']).strip()
+        if token == "" or token == "nan":
+            continue
+            
+        # Find the longest common suffix
+        max_suffix_length = 0
+        for i in range(1, min(len(query_word), len(token)) + 1):
+            if query_word[-i:] == token[-i:]:
+                max_suffix_length = i
+            else:
+                break
+        
+        if max_suffix_length > 0:
+            matches.append({
+                'token': token,
+                'token_length': row['token_length'],
+                'suffix_length': max_suffix_length,
+                'suffix': token[-max_suffix_length:]
+            })
+    
+    # Sort by suffix length (longest first), then by token length
+    matches.sort(key=lambda x: (x['suffix_length'], x['token_length']), reverse=True)
+    
+    return matches[:top_n]
+
 def gemini_generate(prompt, temperature=0.8, max_tokens=500):
     model = genai.GenerativeModel('models/gemini-1.5-flash')
     response = model.generate_content(prompt, generation_config={
@@ -142,11 +188,11 @@ def main():
         if tagore_v1_b64:
             st.markdown(f'''
                 <div style="display: flex; justify-content: center; align-items: center; width: 100%; margin-bottom: 1.2rem;">
-                    <img src="data:image/png;base64,{tagore_v1_b64}" style="width: 180px; max-width: 80%; display: block; margin-left: auto; margin-right: auto; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); border: 2px solid #3a3a4e; padding: 8px;" />
+                        <img src="data:image/png;base64,{tagore_v1_b64}" style="width: 180px; max-width: 80%; display: block; margin-left: auto; margin-right: auto; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); border: 2px solid #3a3a4e; padding: 8px;" />
                 </div>
             ''', unsafe_allow_html=True)
         # Remove Admin Portal from the mode dropdown
-        st.session_state['active_mode'] = st.selectbox("Mode", ["Search Music", "Search Poetry", "Generate", "Read Blog"], key="mode_select").lower().replace(' ', '_')
+        st.session_state['active_mode'] = st.selectbox("Mode", ["Search Music", "Search Poetry", "Generate", "Read Blog", "Dictionary"], key="mode_select").lower().replace(' ', '_')
 
         # Poet name dropdown for search mode
         poet_options = [
@@ -397,7 +443,7 @@ def main():
                     if st.session_state['current_page'] < total_pages-1:
                         st.session_state['current_page'] += 1
         elif results is not None:
-            st.info("No matching poems found. Try another filter!")
+                    st.info("No matching poems found. Try another filter!")
             
     elif st.session_state['active_mode'] == 'search_music':
         # Music Search: search Google Drive, show lyrics and metadata, filter by রাগ and তাল
@@ -686,6 +732,66 @@ def main():
                     </div>
                     """, unsafe_allow_html=True)
                     st.markdown(f'<div class="bengali-poem">{result.replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
+
+    elif st.session_state['active_mode'] == 'dictionary':
+        # Dictionary Section
+        st.markdown("""
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <h3 style="color: #64b5f6; margin-bottom: 1rem;">📚 বাংলা অভিধান</h3>
+            <p style="color: #888; font-size: 1.1rem;">Find Bengali words with longest suffix matches</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Load dictionary data
+        tokens_df = load_dictionary_data()
+        
+        if not tokens_df.empty:
+            # Input section
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                query_word = st.text_input("Enter a Bengali word", placeholder="e.g. ভালো, মানুষ, প্রেম...", key="dictionary_search")
+            with col2:
+                search_clicked = st.button("🔍 Search", key="do_dictionary_search", use_container_width=True)
+            
+            if search_clicked and query_word.strip():
+                with st.spinner("🔍 Finding suffix matches..."):
+                    matches = find_suffix_matches(query_word, tokens_df, top_n=20)
+                    
+                    if matches:
+                        st.markdown("""
+                        <div style="background: linear-gradient(135deg, #0f3460 0%, #16213e 100%); 
+                                    border-radius: 12px; padding: 1.5rem; margin: 1rem 0; 
+                                    border: 1px solid #3a3a4e;">
+                            <h4 style="color: #64b5f6; margin-bottom: 1rem;">📖 Top 20 Suffix Matches</h4>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Create a table with the results
+                        results_data = []
+                        for i, match in enumerate(matches, 1):
+                            results_data.append({
+                                "Rank": i,
+                                "Token": match['token'],
+                                "Token Length": match['token_length'],
+                                "Suffix Length": match['suffix_length'],
+                                "Common Suffix": match['suffix']
+                            })
+                        
+                        results_df = pd.DataFrame(results_data)
+                        st.dataframe(results_df, use_container_width=True)
+                        
+                        # Show detailed analysis
+                        st.markdown("### 📊 Analysis")
+                        st.markdown(f"**Query Word:** {query_word}")
+                        st.markdown(f"**Total Matches Found:** {len(matches)}")
+                        if matches:
+                            st.markdown(f"**Longest Suffix Match:** {matches[0]['suffix']} ({matches[0]['suffix_length']} characters)")
+                    else:
+                        st.info("No suffix matches found for the given word. Try a different word!")
+            elif search_clicked and not query_word.strip():
+                st.warning("Please enter a Bengali word to search.")
+        else:
+            st.error("Could not load dictionary data. Please try again later.")
 
     elif st.session_state['active_mode'] == 'read_blog':
         # Blog Section (Multiple Blogs)
