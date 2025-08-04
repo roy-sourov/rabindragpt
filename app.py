@@ -73,9 +73,9 @@ def load_music_data():
     # If pickle doesn't exist or fails, load from Google Drive and create pickle
     try:
         sheet_id = "14usErsJJZU82Thx1Jl4D93cTPyN0ea8Mq7nsYzgtZP4"
-        sheet_name = "tagore"
+        gid = "0"  # Tagore sheet gid
         
-        csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&sheet={sheet_name}"
+        csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
         
         df = pd.read_csv(csv_url)
         
@@ -90,6 +90,77 @@ def load_music_data():
         return df
     except Exception as e:
         st.error(f"Could not load music from Google Drive: {e}")
+        return pd.DataFrame()
+
+def load_dwijendralal_data():
+    """Load Dwijendralal Ray's music data from Google Drive"""
+    pickle_path = "songs/dwijendralal.pkl"
+    
+    # Try to load from pickle first
+    if os.path.exists(pickle_path):
+        try:
+            df = pd.read_pickle(pickle_path)
+            return df
+        except Exception as e:
+            st.warning(f"Could not load from pickle: {e}")
+    
+    # If pickle doesn't exist or fails, load from Google Drive and create pickle
+    try:
+        sheet_id = "14usErsJJZU82Thx1Jl4D93cTPyN0ea8Mq7nsYzgtZP4"
+        gid = "491922462"  # Dwijendralal Ray sheet gid
+        
+        csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
+        
+        df = pd.read_csv(csv_url)
+        
+        # Save to pickle for future use
+        try:
+            os.makedirs("songs", exist_ok=True)
+            df.to_pickle(pickle_path)
+            st.success("✅ Dwijendralal Ray data loaded from Google Drive and saved locally")
+        except Exception as e:
+            st.warning(f"Could not save pickle: {e}")
+        
+        return df
+    except Exception as e:
+        st.error(f"Could not load Dwijendralal Ray music from Google Drive: {e}")
+        return pd.DataFrame()
+
+def load_combined_music_data(selected_lyricist):
+    """Load music data based on selected lyricist"""
+    if selected_lyricist == "All":
+        # Load both Tagore and Dwijendralal Ray data
+        tagore_df = load_music_data()
+        dwijendralal_df = load_dwijendralal_data()
+        
+        # Add lyricist column to each dataframe
+        if not tagore_df.empty:
+            tagore_df['lyricist'] = 'Rabindranath Tagore'
+        if not dwijendralal_df.empty:
+            dwijendralal_df['lyricist'] = 'Dwijendralal Ray'
+        
+        # Combine the dataframes
+        if not tagore_df.empty and not dwijendralal_df.empty:
+            combined_df = pd.concat([tagore_df, dwijendralal_df], ignore_index=True)
+            return combined_df
+        elif not tagore_df.empty:
+            return tagore_df
+        elif not dwijendralal_df.empty:
+            return dwijendralal_df
+        else:
+            return pd.DataFrame()
+    elif selected_lyricist == "Rabindranath Tagore":
+        df = load_music_data()
+        if not df.empty:
+            df['lyricist'] = 'Rabindranath Tagore'
+        return df
+    elif selected_lyricist == "Dwijendralal Ray":
+        df = load_dwijendralal_data()
+        if not df.empty:
+            df['lyricist'] = 'Dwijendralal Ray'
+        return df
+    else:
+        # For other lyricists, return empty dataframe for now
         return pd.DataFrame()
 
 def load_dictionary_data():
@@ -422,7 +493,21 @@ def main():
                 first_line = row['lyrics'].splitlines()[0].rstrip('।.,!?,;: ')
                 def safe(val):
                     return 'অজানা' if str(val).strip() == '?' or str(val).strip() == 'nan' else val
-                with st.expander(f"{first_line} - Rabindranath Tagore"):
+                
+                # Determine the lyricist name from the data
+                if 'lyricist' in row:
+                    lyricist_name = row['lyricist']
+                else:
+                    # Fallback to selected poet if lyricist column doesn't exist
+                    selected_poet = st.session_state.get('selected_poet', 'All')
+                    if selected_poet == 'Rabindranath Tagore':
+                        lyricist_name = "Rabindranath Tagore"
+                    elif selected_poet == 'Dwijendralal Ray':
+                        lyricist_name = "Dwijendralal Ray"
+                    else:
+                        lyricist_name = "Rabindranath Tagore"  # Default fallback
+                
+                with st.expander(f"{first_line} - {lyricist_name}"):
                     st.markdown(f'<div class="bengali-poem">{row["lyrics"].replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
                     st.markdown(f"**রাগ:** {safe(row['রাগ'])}  ")
                     st.markdown(f"**তাল:** {safe(row['তাল'])}  ")
@@ -448,14 +533,25 @@ def main():
     elif st.session_state['active_mode'] == 'search_music':
         # Music Search: search Google Drive, show lyrics and metadata, filter by রাগ and তাল
         st.subheader("Music Search")
+        
+        # Get selected lyricist
+        selected_lyricist = st.session_state.get('selected_lyricist', 'All')
+        
         try:
-            df = load_music_data()
-            rag_options = ['All'] + sorted([r for r in df['রাগ'].dropna().unique().tolist() if str(r).strip() != '?' and str(r).strip() != 'nan'])
-            tal_options = ['All'] + sorted([t for t in df['তাল'].dropna().unique().tolist() if str(t).strip() != '?' and str(t).strip() != 'nan'])
+            # Load data based on selected lyricist
+            df = load_combined_music_data(selected_lyricist)
+            
+            # Get raga and tala options from the loaded data
+            if not df.empty:
+                rag_options = ['All'] + sorted([r for r in df['রাগ'].dropna().unique().tolist() if str(r).strip() != '?' and str(r).strip() != 'nan'])
+                tal_options = ['All'] + sorted([t for t in df['তাল'].dropna().unique().tolist() if str(t).strip() != '?' and str(t).strip() != 'nan'])
+            else:
+                rag_options, tal_options = ['All'], ['All']
         except Exception as e:
             st.error(f"Could not load music from Google Drive: {e}")
             rag_options, tal_options = ['All'], ['All']
             df = None
+            
         keyword = st.text_input("Keyword (Bengali or English)", "", key="music_search")
         col_rag, col_tal = st.columns(2)
         with col_rag:
@@ -482,7 +578,7 @@ def main():
         if search_clicked:
             st.session_state['current_page_music'] = 0
             try:
-                if df is not None:
+                if df is not None and not df.empty:
                     filtered = df
                     if keyword.strip():
                         filtered = filtered[filtered['lyrics'].str.contains(keyword, case=False, na=False)]
@@ -490,15 +586,7 @@ def main():
                         filtered = filtered[filtered['রাগ'] == selected_rag]
                     if selected_tal != 'All':
                         filtered = filtered[filtered['তাল'] == selected_tal]
-                    # Filter by selected lyricist
-                    selected_lyricist = st.session_state.get('selected_lyricist', 'All')
-                    if selected_lyricist != 'All':
-                        if selected_lyricist == 'Rabindranath Tagore':
-                            # All current data is from Tagore, so show all results
-                            pass
-                        else:
-                            # For other lyricists, no data available yet
-                            filtered = pd.DataFrame()  # Empty dataframe
+                    
                     st.session_state['music_search_results'] = filtered
                     st.session_state['music_total_pages'] = (len(filtered) + 19) // 20
                 else:
@@ -529,9 +617,23 @@ def main():
                     continue  # Skip header or malformed row
                 def safe(val):
                     return 'অজানা' if str(val).strip() == '?' or str(val).strip() == 'nan' else val
+                
+                # Determine the lyricist name from the data
+                if 'lyricist' in row:
+                    lyricist_name = row['lyricist']
+                else:
+                    # Fallback to selected lyricist if lyricist column doesn't exist
+                    selected_lyricist = st.session_state.get('selected_lyricist', 'All')
+                    if selected_lyricist == 'Rabindranath Tagore':
+                        lyricist_name = "Rabindranath Tagore"
+                    elif selected_lyricist == 'Dwijendralal Ray':
+                        lyricist_name = "Dwijendralal Ray"
+                    else:
+                        lyricist_name = "Rabindranath Tagore"  # Default fallback
+                
                 exp_key = f"music_expander_{start_idx + idx}"
                 expanded = st.session_state['music_expander_open'] == exp_key
-                exp = st.expander(f"{first_line} - Rabindranath Tagore", expanded=expanded)
+                exp = st.expander(f"{first_line} - {lyricist_name}", expanded=expanded)
                 with exp:
                     # If this expander is opened, set it as the open one
                     if expanded is False and st.session_state['music_expander_open'] != exp_key:
@@ -609,8 +711,8 @@ def main():
                         st.session_state['current_page_music'] += 1
         elif results is not None:
             selected_lyricist = st.session_state.get('selected_lyricist', 'All')
-            if selected_lyricist != 'All' and selected_lyricist != 'Rabindranath Tagore':
-                st.info(f"No songs available for {selected_lyricist} yet. Currently only Rabindranath Tagore's songs are available in our database.")
+            if selected_lyricist != 'All' and selected_lyricist not in ['Rabindranath Tagore', 'Dwijendralal Ray']:
+                st.info(f"No songs available for {selected_lyricist} yet. Currently only Rabindranath Tagore and Dwijendralal Ray's songs are available in our database.")
             else:
                 st.info("No matching songs found. Try another filter!")
     elif st.session_state['active_mode'] == 'generate':
