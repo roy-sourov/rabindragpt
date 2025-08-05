@@ -58,8 +58,8 @@ if not GEMINI_API_KEY:
 
 genai.configure(api_key=GEMINI_API_KEY)
 
-def load_music_data():
-    """Load music data from pickle file or Google Drive if pickle doesn't exist"""
+def load_tagore_songs_data():
+    """Load Rabindranath Tagore's songs data from pickle file or Google Drive if pickle doesn't exist"""
     pickle_path = "songs/tagore.pkl"
     
     # Try to load from pickle first
@@ -83,17 +83,17 @@ def load_music_data():
         try:
             os.makedirs("songs", exist_ok=True)
             df.to_pickle(pickle_path)
-            st.success("✅ Data loaded from Google Drive and saved locally")
+            st.success("✅ Tagore songs data loaded from Google Drive and saved locally")
         except Exception as e:
             st.warning(f"Could not save pickle: {e}")
         
         return df
     except Exception as e:
-        st.error(f"Could not load music from Google Drive: {e}")
+        st.error(f"Could not load Tagore songs from Google Drive: {e}")
         return pd.DataFrame()
 
-def load_dwijendralal_data():
-    """Load Dwijendralal Ray's music data from Google Drive"""
+def load_dwijendralal_songs_data():
+    """Load Dwijendralal Ray's songs data from Google Drive"""
     pickle_path = "songs/dwijendralal.pkl"
     
     # Try to load from pickle first
@@ -117,47 +117,93 @@ def load_dwijendralal_data():
         try:
             os.makedirs("songs", exist_ok=True)
             df.to_pickle(pickle_path)
-            st.success("✅ Dwijendralal Ray data loaded from Google Drive and saved locally")
+            st.success("✅ Dwijendralal Ray songs data loaded from Google Drive and saved locally")
         except Exception as e:
             st.warning(f"Could not save pickle: {e}")
         
         return df
     except Exception as e:
-        st.error(f"Could not load Dwijendralal Ray music from Google Drive: {e}")
+        st.error(f"Could not load Dwijendralal Ray songs from Google Drive: {e}")
         return pd.DataFrame()
 
-def load_combined_music_data(selected_lyricist):
-    """Load music data based on selected lyricist"""
+def load_atulprasad_songs_data():
+    """Load Atulprasad Sen's songs data from Google Drive"""
+    pickle_path = "songs/atulprasad.pkl"
+    
+    # Try to load from pickle first
+    if os.path.exists(pickle_path):
+        try:
+            df = pd.read_pickle(pickle_path)
+            return df
+        except Exception as e:
+            st.warning(f"Could not load from pickle: {e}")
+    
+    # If pickle doesn't exist or fails, load from Google Drive and create pickle
+    try:
+        sheet_id = "14usErsJJZU82Thx1Jl4D93cTPyN0ea8Mq7nsYzgtZP4"
+        gid = "1890029073"  # Atulprasad Sen sheet gid
+        
+        csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
+        
+        df = pd.read_csv(csv_url)
+        
+        # Save to pickle for future use
+        try:
+            os.makedirs("songs", exist_ok=True)
+            df.to_pickle(pickle_path)
+            st.success("✅ Atulprasad Sen songs data loaded from Google Drive and saved locally")
+        except Exception as e:
+            st.warning(f"Could not save pickle: {e}")
+        
+        return df
+    except Exception as e:
+        st.error(f"Could not load Atulprasad Sen songs from Google Drive: {e}")
+        return pd.DataFrame()
+
+def load_combined_songs_data(selected_lyricist):
+    """Load songs data based on selected lyricist"""
     if selected_lyricist == "All":
-        # Load both Tagore and Dwijendralal Ray data
-        tagore_df = load_music_data()
-        dwijendralal_df = load_dwijendralal_data()
+        # Load all lyricists' data
+        tagore_df = load_tagore_songs_data()
+        dwijendralal_df = load_dwijendralal_songs_data()
+        atulprasad_df = load_atulprasad_songs_data()
         
         # Add lyricist column to each dataframe
         if not tagore_df.empty:
             tagore_df['lyricist'] = 'Rabindranath Tagore'
         if not dwijendralal_df.empty:
             dwijendralal_df['lyricist'] = 'Dwijendralal Ray'
+        if not atulprasad_df.empty:
+            atulprasad_df['lyricist'] = 'Atulprasad Sen'
         
-        # Combine the dataframes
-        if not tagore_df.empty and not dwijendralal_df.empty:
-            combined_df = pd.concat([tagore_df, dwijendralal_df], ignore_index=True)
+        # Combine all dataframes
+        dataframes = []
+        if not tagore_df.empty:
+            dataframes.append(tagore_df)
+        if not dwijendralal_df.empty:
+            dataframes.append(dwijendralal_df)
+        if not atulprasad_df.empty:
+            dataframes.append(atulprasad_df)
+        
+        if dataframes:
+            combined_df = pd.concat(dataframes, ignore_index=True)
             return combined_df
-        elif not tagore_df.empty:
-            return tagore_df
-        elif not dwijendralal_df.empty:
-            return dwijendralal_df
         else:
             return pd.DataFrame()
     elif selected_lyricist == "Rabindranath Tagore":
-        df = load_music_data()
+        df = load_tagore_songs_data()
         if not df.empty:
             df['lyricist'] = 'Rabindranath Tagore'
         return df
     elif selected_lyricist == "Dwijendralal Ray":
-        df = load_dwijendralal_data()
+        df = load_dwijendralal_songs_data()
         if not df.empty:
             df['lyricist'] = 'Dwijendralal Ray'
+        return df
+    elif selected_lyricist == "Atulprasad Sen":
+        df = load_atulprasad_songs_data()
+        if not df.empty:
+            df['lyricist'] = 'Atulprasad Sen'
         return df
     else:
         # For other lyricists, return empty dataframe for now
@@ -334,7 +380,7 @@ def main():
                 if music_style == "Rabindra Sangeet":
                     st.markdown("**রাগ এবং তাল নির্বাচন করুন:**")
                     try:
-                        df = load_music_data()
+                        df = load_tagore_songs_data()
                         rag_options = [r for r in sorted(df['রাগ'].dropna().unique().tolist()) if str(r).strip() != '?' and str(r).strip() != 'nan']
                         tal_options = [t for t in sorted(df['তাল'].dropna().unique().tolist()) if str(t).strip() != '?' and str(t).strip() != 'nan']
                     except Exception:
@@ -404,7 +450,7 @@ def main():
     if st.session_state.get('admin_logged_in', False):
         st.subheader("Edit YouTube Links (Admin)")
         try:
-            df = load_music_data()
+            df = load_tagore_songs_data()
         except Exception as e:
             st.error(f"Could not load songs: {e}")
             df = None
@@ -468,7 +514,7 @@ def main():
         if st.button("🔍 Search Poetry", key="do_search"):
             st.session_state['current_page'] = 0
             try:
-                df = load_music_data()
+                df = load_tagore_songs_data()
                 if keyword.strip():
                     matches = df[df['lyrics'].str.contains(keyword, case=False, na=False)]
                 else:
@@ -504,6 +550,8 @@ def main():
                         lyricist_name = "Rabindranath Tagore"
                     elif selected_poet == 'Dwijendralal Ray':
                         lyricist_name = "Dwijendralal Ray"
+                    elif selected_poet == 'Atulprasad Sen':
+                        lyricist_name = "Atulprasad Sen"
                     else:
                         lyricist_name = "Rabindranath Tagore"  # Default fallback
                 
@@ -539,7 +587,7 @@ def main():
         
         try:
             # Load data based on selected lyricist
-            df = load_combined_music_data(selected_lyricist)
+            df = load_combined_songs_data(selected_lyricist)
             
             # Get raga and tala options from the loaded data
             if not df.empty:
@@ -565,16 +613,34 @@ def main():
             st.session_state['music_total_pages'] = 0
         if 'current_page_music' not in st.session_state:
             st.session_state['current_page_music'] = 0
+        # Initialize search status in session state
+        if 'music_search_status' not in st.session_state:
+            st.session_state['music_search_status'] = ''
+        
         col_btn, col_msg = st.columns([2, 3])
         with col_btn:
             search_clicked = st.button("Search Music", key="do_search_music")
         with col_msg:
-            results = st.session_state.get('music_search_results', None)
-            if results is not None and len(results) > 0:
+            # Show search status or results count
+            if search_clicked:
+                st.session_state['music_search_status'] = 'Searching...'
                 st.markdown(
-                    f"<div style='color: #388e3c; font-weight: bold; text-align: right; font-size: 1.1rem;'>Found {len(results)} matches!</div>",
+                    f"<div style='color: #388e3c; font-weight: bold; text-align: right; font-size: 1.1rem;'>{st.session_state['music_search_status']}</div>",
                     unsafe_allow_html=True
                 )
+            else:
+                results = st.session_state.get('music_search_results', None)
+                if results is not None and len(results) > 0:
+                    st.session_state['music_search_status'] = f"Found {len(results)} matches!"
+                    st.markdown(
+                        f"<div style='color: #388e3c; font-weight: bold; text-align: right; font-size: 1.1rem;'>{st.session_state['music_search_status']}</div>",
+                        unsafe_allow_html=True
+                    )
+                elif st.session_state['music_search_status']:
+                    st.markdown(
+                        f"<div style='color: #388e3c; font-weight: bold; text-align: right; font-size: 1.1rem;'>{st.session_state['music_search_status']}</div>",
+                        unsafe_allow_html=True
+                    )
         if search_clicked:
             st.session_state['current_page_music'] = 0
             try:
@@ -589,12 +655,20 @@ def main():
                     
                     st.session_state['music_search_results'] = filtered
                     st.session_state['music_total_pages'] = (len(filtered) + 19) // 20
+                    
+                    # Update search status
+                    if len(filtered) > 0:
+                        st.session_state['music_search_status'] = f"Found {len(filtered)} matches!"
+                    else:
+                        st.session_state['music_search_status'] = "No matches found"
                 else:
                     st.session_state['music_search_results'] = None
                     st.session_state['music_total_pages'] = 0
+                    st.session_state['music_search_status'] = "No data available"
             except Exception as e:
                 st.session_state['music_search_results'] = None
                 st.session_state['music_total_pages'] = 0
+                st.session_state['music_search_status'] = "Search failed"
                 st.error(f"Could not load music from Google Drive: {e}")
         # Show results if available
         results = st.session_state.get('music_search_results', None)
@@ -628,6 +702,8 @@ def main():
                         lyricist_name = "Rabindranath Tagore"
                     elif selected_lyricist == 'Dwijendralal Ray':
                         lyricist_name = "Dwijendralal Ray"
+                    elif selected_lyricist == 'Atulprasad Sen':
+                        lyricist_name = "Atulprasad Sen"
                     else:
                         lyricist_name = "Rabindranath Tagore"  # Default fallback
                 
@@ -711,8 +787,8 @@ def main():
                         st.session_state['current_page_music'] += 1
         elif results is not None:
             selected_lyricist = st.session_state.get('selected_lyricist', 'All')
-            if selected_lyricist != 'All' and selected_lyricist not in ['Rabindranath Tagore', 'Dwijendralal Ray']:
-                st.info(f"No songs available for {selected_lyricist} yet. Currently only Rabindranath Tagore and Dwijendralal Ray's songs are available in our database.")
+            if selected_lyricist != 'All' and selected_lyricist not in ['Rabindranath Tagore', 'Dwijendralal Ray', 'Atulprasad Sen']:
+                st.info(f"No songs available for {selected_lyricist} yet. Currently only Rabindranath Tagore, Dwijendralal Ray, and Atulprasad Sen's songs are available in our database.")
             else:
                 st.info("No matching songs found. Try another filter!")
     elif st.session_state['active_mode'] == 'generate':
@@ -809,7 +885,7 @@ def main():
                         duration = st.session_state.get('music_gen_duration', 120)
                         if music_style == "Rabindra Sangeet" and st.session_state.get('music_gen_raga') and st.session_state.get('music_gen_tala'):
                             try:
-                                df = load_music_data()
+                                df = load_tagore_songs_data()
                                 filtered = df[(df['রাগ'] == st.session_state['music_gen_raga']) & (df['তাল'] == st.session_state['music_gen_tala'])]
                                 if not filtered.empty:
                                     ref_row = filtered.sample(1).iloc[0]
