@@ -853,60 +853,75 @@ def main():
         col1, col2 = st.columns(2)
         
         with col1:
-            if st.button("📝 Poetry Generation", key="poetry_button", use_container_width=True):
+            # Check if poetry mode is selected for styling
+            is_poetry_selected = st.session_state.get('selected_gen_mode') == 'Poetry'
+            poetry_button_style = """
+                <style>
+                .poetry-selected {
+                    border: 3px solid #64b5f6 !important;
+                    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+                    box-shadow: 0 0 10px rgba(100, 181, 246, 0.3) !important;
+                }
+                </style>
+                """
+            st.markdown(poetry_button_style, unsafe_allow_html=True)
+            
+            if st.button("Poetry Generation", key="poetry_button", use_container_width=True):
                 st.session_state['selected_gen_mode'] = 'Poetry'
-            st.markdown("""
-            <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
-                        border-radius: 15px; padding: 1.5rem; margin: 1rem 0; 
-                        border: 2px solid #3a3a4e; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-                <p style="color: #b0bec5; font-size: 0.9rem; text-align: center; margin: 0;">Create beautiful Bengali poetry in various styles</p>
-            </div>
-            """, unsafe_allow_html=True)
             
         with col2:
-            if st.button("🎼 Music Generation", key="music_button", use_container_width=True):
+            if st.button("Music Generation", key="music_button", use_container_width=True):
                 st.session_state['selected_gen_mode'] = 'Music'
-            st.markdown("""
-            <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
-                        border-radius: 15px; padding: 1.5rem; margin: 1rem 0; 
-                        border: 2px solid #3a3a4e; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-                <p style="color: #b0bec5; font-size: 0.9rem; text-align: center; margin: 0;">Compose Bengali music lyrics and melodies</p>
-            </div>
-            """, unsafe_allow_html=True)
         
         # Show generation UI based on selected mode
         if 'selected_gen_mode' in st.session_state:
             gen_mode = st.session_state['selected_gen_mode']
             
-            # Add a back button
-            if st.button("← Back to Mode Selection", key="back_button"):
-                del st.session_state['selected_gen_mode']
-                st.rerun()
-            
-            st.markdown("<br>", unsafe_allow_html=True)
+
             
             result = None
             if gen_mode == "Poetry":
-                st.markdown("""
-                <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
-                            border-radius: 12px; padding: 1.5rem; margin: 1rem 0; 
-                            border: 1px solid #3a3a4e;">
-                    <h4 style="color: #64b5f6; margin-bottom: 1rem;">📝 Poetry Settings</h4>
-                </div>
-                """, unsafe_allow_html=True)
                 
                 col1, col2 = st.columns(2)
                 with col1:
+                    st.markdown("**Poetry Type**")
                     poetry_type = st.selectbox(
                         "Poetry Type",
-                        ["Sonnet", "Ghazal", "Free Verse", "Haiku", "Custom"]
+                        ["Sonnet", "Ghazal", "Free Verse", "Haiku", "Custom"],
+                        label_visibility="collapsed"
                     )
-                    query = st.text_input("Enter your query", placeholder="e.g. Love, Nature, Freedom...")
+                    st.markdown("**Theme**")
+                    query = st.text_input("Enter your query", placeholder="e.g. Love, Nature, Freedom...", label_visibility="collapsed")
                 with col2:
-                    length = st.slider("Poem Length", 4, 20, 8)
-                    if st.button("🎵 Generate Poetry", key="do_generate_poetry", use_container_width=True):
+                    st.markdown("**Poem Length**")
+                    length = st.number_input("Poem Length", min_value=1, max_value=20, value=8, step=1, label_visibility="collapsed")
+                    st.markdown("**Additional Prompt**")
+                    context = st.text_input("Additional prompt", placeholder="Any additional instructions...", label_visibility="collapsed")
+                
+                # Generate button on same level as Music Generation
+                col_btn1, col_btn2 = st.columns(2)
+                with col_btn1:
+                    if st.button("Generate Poetry", key="do_generate_poetry", use_container_width=True):
                         with st.spinner("✨ Generating poetry with Gemini..."):
-                            prompt = f"Generate a Bengali poetry on theme: {query if query else 'Any'} of length {length} lines. Type: {poetry_type}."
+                            # Map poetry type to Bengali label for clearer instruction
+                            type_map_bn = {
+                                "Sonnet": "সনেট",
+                                "Ghazal": "গজল",
+                                "Free Verse": "মুক্তছন্দ",
+                                "Haiku": "হাইকু",
+                                "Custom": "নিজস্ব শৈলী",
+                            }
+                            poetry_type_bn = type_map_bn.get(poetry_type, poetry_type)
+                            theme_text = query if query else "যেকোনো"
+                            context_text = f"\nঅতিরিক্ত নির্দেশনা: {context}" if context else ""
+                            prompt = (
+                                f"বাংলা ভাষায় একটি কবিতা রচনা করো।\n"
+                                f"বিষয়/থিম: {theme_text}\n"
+                                f"ধরন/শৈলী: {poetry_type_bn}\n"
+                                f"লাইনের সংখ্যা: {length}{context_text}\n\n"
+                                f"নির্দেশনা: শুধুমাত্র বাংলা লিপি ব্যবহার করবে—ইংরেজি বর্ণ/শব্দ, রোমান হরফ, অনুবাদ, ব্যাখ্যা, বা অতিরিক্ত কোনো টেক্সট একদম নয়।"
+                                f" শুধু কবিতার লাইনগুলো দেবে; কোনো শিরোনাম, নম্বরিং, বা বুলেট নয়। মোট {length} লাইন হবে এবং শেষ লাইনের পর অতিরিক্ত লাইন দেবে না।"
+                            )
                             result = gemini_generate(prompt, st.session_state['temperature'], st.session_state['max_tokens'])
                 
                 if result:
