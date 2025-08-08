@@ -367,11 +367,12 @@ def main():
         # Poet name dropdown for search mode
         poet_options = [
             "All",
+            "Rabindranath Tagore",
+            "Jibanananda Das",
+            "Michael Madhusudan Dutt",
+            "Sukumar Ray"
             "Chandidas",
             "Vidyapati",
-            "Michael Madhusudan Dutt",
-            "Rabindranath Tagore",
-            "Jibanananda Das"
         ]
         
         # Lyricist name dropdown for search mode
@@ -458,25 +459,26 @@ def main():
 
 
         
+        # DISABLED: Access Level functionality - commented out for now
         # Place Access Level dropdown at the absolute bottom of the sidebar
-        access_level_placeholder = st.sidebar.empty()
-        with access_level_placeholder:
-            st.markdown("<hr style='margin:1rem 0;'>", unsafe_allow_html=True)
-            if 'access_level' not in st.session_state:
-                st.session_state['access_level'] = 'User'
-            access_level = st.selectbox('Access Level', ['User', 'Admin'], key='access_level_select', index=0 if st.session_state['access_level'] == 'User' else 1)
-            if access_level != st.session_state['access_level']:
-                st.session_state['access_level'] = access_level
-                if access_level == 'User':
-                    st.session_state['show_admin_portal'] = False
-                    st.session_state['admin_logged_in'] = False
-                else:
-                    st.session_state['show_admin_portal'] = True
-        # Keep show_admin_portal in sync with access_level
-        if st.session_state['access_level'] == 'Admin':
-            st.session_state['show_admin_portal'] = True
-        else:
-            st.session_state['show_admin_portal'] = False
+        # access_level_placeholder = st.sidebar.empty()
+        # with access_level_placeholder:
+        #     st.markdown("<hr style='margin:1rem 0;'>", unsafe_allow_html=True)
+        #     if 'access_level' not in st.session_state:
+        #         st.session_state['access_level'] = 'User'
+        #     access_level = st.selectbox('Access Level', ['User', 'Admin'], key='access_level_select', index=0 if st.session_state['access_level'] == 'User' else 1)
+        #     if access_level != st.session_state['access_level']:
+        #         st.session_state['access_level'] = access_level
+        #         if access_level == 'User':
+        #             st.session_state['show_admin_portal'] = False
+        #             st.session_state['admin_logged_in'] = False
+        #         else:
+        #             st.session_state['show_admin_portal'] = True
+        # # Keep show_admin_portal in sync with access_level
+        # if st.session_state['access_level'] == 'Admin':
+        #     st.session_state['show_admin_portal'] = True
+        # else:
+        #     st.session_state['show_admin_portal'] = False
 
     # Main content area
     if 'active_mode' not in st.session_state:
@@ -850,28 +852,21 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
-        col1, col2 = st.columns(2)
+        # Single radio button for generation mode selection
+        gen_mode = st.radio(
+            "Select Generation Mode",
+            ["Poetry Generation", "Music Generation"],
+            horizontal=True,
+            key="gen_mode_radio"
+        )
         
-        with col1:
-            # Check if poetry mode is selected for styling
-            is_poetry_selected = st.session_state.get('selected_gen_mode') == 'Poetry'
-            poetry_button_style = """
-                <style>
-                .poetry-selected {
-                    border: 3px solid #64b5f6 !important;
-                    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
-                    box-shadow: 0 0 10px rgba(100, 181, 246, 0.3) !important;
-                }
-                </style>
-                """
-            st.markdown(poetry_button_style, unsafe_allow_html=True)
-            
-            if st.button("Poetry Generation", key="poetry_button", use_container_width=True):
-                st.session_state['selected_gen_mode'] = 'Poetry'
-            
-        with col2:
-            if st.button("Music Generation", key="music_button", use_container_width=True):
-                st.session_state['selected_gen_mode'] = 'Music'
+        # Set the selected mode in session state
+        if gen_mode == "Poetry Generation":
+            st.session_state['selected_gen_mode'] = 'Poetry'
+        else:
+            st.session_state['selected_gen_mode'] = 'Music'
+        
+
         
         # Show generation UI based on selected mode
         if 'selected_gen_mode' in st.session_state:
@@ -898,31 +893,29 @@ def main():
                     st.markdown("**Additional Prompt**")
                     context = st.text_input("Additional prompt", placeholder="Any additional instructions...", label_visibility="collapsed")
                 
-                # Generate button on same level as Music Generation
-                col_btn1, col_btn2 = st.columns(2)
-                with col_btn1:
-                    if st.button("Generate Poetry", key="do_generate_poetry", use_container_width=True):
-                        with st.spinner("✨ Generating poetry with Gemini..."):
-                            # Map poetry type to Bengali label for clearer instruction
-                            type_map_bn = {
-                                "Sonnet": "সনেট",
-                                "Ghazal": "গজল",
-                                "Free Verse": "মুক্তছন্দ",
-                                "Haiku": "হাইকু",
-                                "Custom": "নিজস্ব শৈলী",
-                            }
-                            poetry_type_bn = type_map_bn.get(poetry_type, poetry_type)
-                            theme_text = query if query else "যেকোনো"
-                            context_text = f"\nঅতিরিক্ত নির্দেশনা: {context}" if context else ""
-                            prompt = (
-                                f"বাংলা ভাষায় একটি কবিতা রচনা করো।\n"
-                                f"বিষয়/থিম: {theme_text}\n"
-                                f"ধরন/শৈলী: {poetry_type_bn}\n"
-                                f"লাইনের সংখ্যা: {length}{context_text}\n\n"
-                                f"নির্দেশনা: শুধুমাত্র বাংলা লিপি ব্যবহার করবে—ইংরেজি বর্ণ/শব্দ, রোমান হরফ, অনুবাদ, ব্যাখ্যা, বা অতিরিক্ত কোনো টেক্সট একদম নয়।"
-                                f" শুধু কবিতার লাইনগুলো দেবে; কোনো শিরোনাম, নম্বরিং, বা বুলেট নয়। মোট {length} লাইন হবে এবং শেষ লাইনের পর অতিরিক্ত লাইন দেবে না।"
-                            )
-                            result = gemini_generate(prompt, st.session_state['temperature'], st.session_state['max_tokens'])
+                # Generate button
+                if st.button("Generate Poetry", key="do_generate_poetry", use_container_width=True):
+                    with st.spinner("✨ Generating poetry with Gemini..."):
+                        # Map poetry type to Bengali label for clearer instruction
+                        type_map_bn = {
+                            "Sonnet": "সনেট",
+                            "Ghazal": "গজল",
+                            "Free Verse": "মুক্তছন্দ",
+                            "Haiku": "হাইকু",
+                            "Custom": "নিজস্ব শৈলী",
+                        }
+                        poetry_type_bn = type_map_bn.get(poetry_type, poetry_type)
+                        theme_text = query if query else "যেকোনো"
+                        context_text = f"\nঅতিরিক্ত নির্দেশনা: {context}" if context else ""
+                        prompt = (
+                            f"বাংলা ভাষায় একটি কবিতা রচনা করো।\n"
+                            f"বিষয়/থিম: {theme_text}\n"
+                            f"ধরন/শৈলী: {poetry_type_bn}\n"
+                            f"লাইনের সংখ্যা: {length}{context_text}\n\n"
+                            f"নির্দেশনা: শুধুমাত্র বাংলা লিপি ব্যবহার করবে—ইংরেজি বর্ণ/শব্দ, রোমান হরফ, অনুবাদ, ব্যাখ্যা, বা অতিরিক্ত কোনো টেক্সট একদম নয়।"
+                            f" শুধু কবিতার লাইনগুলো দেবে; কোনো শিরোনাম, নম্বরিং, বা বুলেট নয়। মোট {length} লাইন হবে এবং শেষ লাইনের পর অতিরিক্ত লাইন দেবে না।"
+                        )
+                        result = gemini_generate(prompt, st.session_state['temperature'], st.session_state['max_tokens'])
                 
                 if result:
                     st.markdown("""
