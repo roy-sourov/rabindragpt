@@ -48,6 +48,11 @@ st.markdown("""
         border-radius: 10px;
         margin: 1rem 0;
     }
+    /* Hide Streamlit's inline hint "Press Enter to apply" on inputs */
+    div[data-testid="stTextInput"] p,
+    div[data-testid="stNumberInput"] p {
+        display: none !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -210,12 +215,57 @@ def load_combined_songs_data(selected_lyricist):
         return pd.DataFrame()
 
 def load_dictionary_data():
-    """Load dictionary data from Google Sheet"""
+    """Load dictionary data for suffix matching with on-disk caching.
+
+    Behavior:
+    - On first run (no pickle yet): load from Google Sheets, keep only the first
+      occurrence of each unique token, compute token_length, pickle to disk, and
+      return the processed DataFrame.
+    - On subsequent runs: load directly from the pickle for fast startup.
+    """
+    pickle_path = "songs/dictionary.pkl"
+
+    # Try to load from pickle first
+    if os.path.exists(pickle_path):
+        try:
+            cached_df = pd.read_pickle(pickle_path)
+            return cached_df
+        except Exception as e:
+            st.warning(f"Could not load dictionary cache from pickle: {e}")
+
+    # Fallback: load from Google Sheets, process, and cache
     try:
         sheet_id = "1WCkGF8wzS3YVACJC9YleFHEkx5K0XGmFja4xteFs2hw"
         csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
-        df = pd.read_csv(csv_url)
-        return df
+        raw_df = pd.read_csv(csv_url)
+
+        # Normalize and keep first occurrence of each unique token
+        if 'token' not in raw_df.columns:
+            st.error("Dictionary sheet must contain a 'token' column.")
+            return pd.DataFrame()
+
+        # Clean token values
+        processed_df = raw_df.copy()
+        processed_df['token'] = processed_df['token'].astype(str).str.strip()
+
+        # Drop rows with empty or invalid tokens
+        processed_df = processed_df[(processed_df['token'] != '') & (processed_df['token'].str.lower() != 'nan')]
+
+        # Keep first occurrence per unique token
+        processed_df = processed_df.drop_duplicates(subset=['token'], keep='first')
+
+        # Ensure token_length exists and is correct
+        processed_df['token_length'] = processed_df['token'].apply(lambda x: len(str(x)))
+
+        # Persist cache
+        try:
+            os.makedirs("songs", exist_ok=True)
+            processed_df.to_pickle(pickle_path)
+            st.success("✅ Dictionary loaded from Google Sheet and cached for faster searches")
+        except Exception as e:
+            st.warning(f"Could not save dictionary pickle: {e}")
+
+        return processed_df
     except Exception as e:
         st.error(f"Could not load dictionary data: {e}")
         return pd.DataFrame()
@@ -231,6 +281,9 @@ def find_suffix_matches(query_word, tokens_df, top_n=20):
     for _, row in tokens_df.iterrows():
         token = str(row['token']).strip()
         if token == "" or token == "nan":
+            continue
+        # Exclude exact matches
+        if token == query_word:
             continue
             
         # Find the longest common suffix
@@ -328,9 +381,7 @@ def main():
             "Dwijendralal Ray",
             "Atulprasad Sen",
             "Rajnikant Sen",
-            "Kazi Nazrul Islam",
-            "Salil Chowdhury",
-            "Hemanta Mukhopadhyay"
+            "Kazi Nazrul Islam"
         ]
         
         if st.session_state['active_mode'] == 'search_poetry':
@@ -511,7 +562,7 @@ def main():
             st.session_state['poetry_total_pages'] = 0
         if 'current_page' not in st.session_state:
             st.session_state['current_page'] = 0
-        if st.button("🔍 Search Poetry", key="do_search"):
+        if st.button("Search Poetry", key="do_search"):
             st.session_state['current_page'] = 0
             try:
                 df = load_tagore_songs_data()
@@ -915,8 +966,7 @@ def main():
         # Dictionary Section
         st.markdown("""
         <div style="text-align: center; margin-bottom: 2rem;">
-            <h3 style="color: #64b5f6; margin-bottom: 1rem;">📚 বাংলা অভিধান</h3>
-            <p style="color: #888; font-size: 1.1rem;">Find Bengali words with longest suffix matches</p>
+            <h3 style="color: #64b5f6; margin-bottom: 1rem;">বাংলা ছন্দ অভিধান</h3>
         </div>
         """, unsafe_allow_html=True)
         
@@ -925,24 +975,27 @@ def main():
         
         if not tokens_df.empty:
             # Input section
-            col1, col2 = st.columns([3, 1])
-            with col1:
+            row1_col1, row1_col2 = st.columns([4, 1])
+            with row1_col1:
                 query_word = st.text_input("Enter a Bengali word", placeholder="e.g. ভালো, মানুষ, প্রেম...", key="dictionary_search")
-            with col2:
-                search_clicked = st.button("🔍 Search", key="do_dictionary_search", use_container_width=True)
+            with row1_col2:
+                top_n = st.number_input("Top N", min_value=1, max_value=200, value=20, step=1, key="dictionary_top_n")
+
+            # Search button on a new row, left-aligned under the input
+            row2_col1, row2_col2 = st.columns([4, 1])
+            with row2_col1:
+                search_clicked = st.button("Search", key="do_dictionary_search")
             
             if search_clicked and query_word.strip():
                 with st.spinner("🔍 Finding suffix matches..."):
-                    matches = find_suffix_matches(query_word, tokens_df, top_n=20)
+                    # Use user-selected top_n (default 20)
+                    matches = find_suffix_matches(query_word, tokens_df, top_n=int(top_n))
                     
                     if matches:
-                        st.markdown("""
-                        <div style="background: linear-gradient(135deg, #0f3460 0%, #16213e 100%); 
-                                    border-radius: 12px; padding: 1.5rem; margin: 1rem 0; 
-                                    border: 1px solid #3a3a4e;">
-                            <h4 style="color: #64b5f6; margin-bottom: 1rem;">📖 Top 20 Suffix Matches</h4>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        st.markdown(
+                            f"<div style='color: #388e3c; font-weight: bold; font-size: 1.1rem;'>Top {int(top_n)} Rhyming Words</div>",
+                            unsafe_allow_html=True,
+                        )
                         
                         # Create a table with the results
                         results_data = []
